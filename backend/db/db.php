@@ -1,7 +1,7 @@
 <?php
 define("db_host", "localhost");
-define("db_user", "root");
-define("db_pass", "");
+define("db_user", "devuser");
+define("db_pass", "DevPass123!");
 define("db_name", "felamo");
 
 
