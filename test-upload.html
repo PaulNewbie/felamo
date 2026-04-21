@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Test Bulk Upload</title>
+</head>
+<body style="font-family: sans-serif; padding: 50px;">
+
+    <h2>Test CSV Question Upload</h2>
+    
+    <form action="backend/api/web/upload-questions.php" method="POST" enctype="multipart/form-data">
+        
+        <label>Select your CSV file:</label><br><br>
+        <input type="file" name="csv_file" accept=".csv" required><br><br>
+        
+        <button type="submit" style="padding: 10px 20px; background: #a71b1b; color: white; border: none; cursor: pointer;">
+            Upload Questions
+        </button>
+        
+    </form>
+
+</body>
+</html>

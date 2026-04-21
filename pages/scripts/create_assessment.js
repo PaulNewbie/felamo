@@ -95,52 +95,31 @@ function fetchExistingAssessment(levelId) {
     });
 }
 
-// --- NEW FUNCTION: Fetch questions from all 4 tables ---
+// --- UPDATED FUNCTION: Fetch questions from the NEW Unified Table ---
 function fetchQuestionsByType(assessmentId) {
-    const questionTypes = [
-        { req: "GetMultiQuestions", type: "MCQ" },
-        { req: "GetTrueOrFalseQuestions", type: "TF" },
-        { req: "GetIdentificationQuestions", type: "IDENT" },
-        { req: "GetJumbledWordsQuestions", type: "JUMBLED" }
-    ];
-
-    questionTypes.forEach(qt => {
-        $.ajax({
-            type: "POST",
-            url: "../backend/api/web/asssessments.php",
-            data: { requestType: qt.req, assessment_id: assessmentId },
-            dataType: "json",
-            success: function(response) {
-                if (response.status === "success" && response.data && response.data.length > 0) {
-                    response.data.forEach(q => {
-                        // Map database fields to the structure expected by your render function
-                        let qData = { type: qt.type, question: q.question, is_existing: true, id: q.id };
-                        
-                        // Map answer formats depending on the type
-                        if (qt.type === 'MCQ') {
-                            qData.a = q.choice_a;
-                            qData.b = q.choice_b;
-                            qData.c = q.choice_c;
-                            qData.d = q.choice_d;
-                            qData.correct = q.correct_answer || q.answer; 
-                        } else if (qt.type === 'TF') {
-                            // Map 1/0 back to "True"/"False" string for UI
-                            qData.correct = (q.answer === 1 || q.answer === 'true' || q.answer === true) ? "True" : "False";
-                        } else {
-                            qData.correct = q.correct_answer || q.answer; 
-                        }
-                        
-                        questionsList.push(qData);
-                    });
-                    
-                    // Render the UI after pushing the fetched questions
-                    renderQuestions();
-                }
+    $.ajax({
+        type: "POST",
+        url: "../backend/api/web/asssessments.php",
+        data: { requestType: 'GetUnifiedQuestions', assessment_id: assessmentId },
+        dataType: "json",
+        success: function(response) {
+            if (response.status === "success" && response.data && response.data.length > 0) {
+                response.data.forEach(q => {
+                    // Map the new unified database fields to the UI
+                    let qData = { 
+                        type: q.type.toUpperCase(), // e.g. MULTIPLE_CHOICE
+                        question: q.question_text, 
+                        correct: q.correct_answer,
+                        is_existing: true, 
+                        id: q.id 
+                    };
+                    questionsList.push(qData);
+                });
+                renderQuestions();
             }
-        });
+        }
     });
 }
-
 // --- HELPER FOR MODAL SELECTION UI ---
 function selectRadio(val) {
     let radioBtn = $("#radio" + val);
@@ -204,60 +183,69 @@ function saveQuestion(type) {
     $(".modal").modal("hide");
 }
 
-// --- RENDER PREVIEW LIST ---
+// --- UPDATED RENDER LIST FUNCTION ---
 function renderQuestions() {
     let container = $("#questions-list");
     let wrapper = $("#questions-preview-container");
+    let emptyState = $("#empty-state"); // <--- We now grab the empty state box
+    
     container.empty();
 
-    // Get the current value from the dropdown
     let filterVal = $("#question-filter").val() || "ALL";
 
     if (questionsList.length > 0) {
         wrapper.removeClass("d-none");
-        $("#q-count").text(questionsList.length); // Keep showing the total count of all questions
+        emptyState.addClass("d-none"); // Hides "No Questions Uploaded Yet"
+        
+        $("#q-count").text(questionsList.length);
 
-        let visibleCount = 0; // Track how many match the filter
+        let visibleCount = 0;
 
         questionsList.forEach((q, index) => {
-            // Skip this question if it doesn't match the selected filter
-            if (filterVal !== "ALL" && q.type !== filterVal) {
-                return; 
-            }
+            // Map the old HTML filter values to our new Database types
+            let typeMatches = false;
+            if (filterVal === "ALL") typeMatches = true;
+            else if (filterVal === "MCQ" && q.type === "MULTIPLE_CHOICE") typeMatches = true;
+            else if (filterVal === "TF" && q.type === "TRUE_FALSE") typeMatches = true;
+            else if (filterVal === "IDENT" && q.type === "IDENTIFICATION") typeMatches = true;
+            else if (filterVal === "JUMBLED" && q.type === "JUMBLED_WORD") typeMatches = true;
+
+            if (!typeMatches) return; 
             
-            visibleCount++; // Found a match!
+            visibleCount++;
 
             let badgeClass = "bg-secondary";
-            if(q.type === 'MCQ') badgeClass = "bg-primary";
-            if(q.type === 'TF') badgeClass = "bg-success";
-            if(q.type === 'IDENT') badgeClass = "bg-info text-dark";
-            if(q.type === 'JUMBLED') badgeClass = "bg-warning text-dark";
+            if(q.type === 'MULTIPLE_CHOICE') badgeClass = "bg-primary";
+            if(q.type === 'TRUE_FALSE') badgeClass = "bg-success";
+            if(q.type === 'IDENTIFICATION') badgeClass = "bg-info text-dark";
+            if(q.type === 'JUMBLED_WORD') badgeClass = "bg-warning text-dark";
             
-            // Wrap the added-question-item in a col-lg-4 (3 columns) div
+            // Clean up the text (e.g. MULTIPLE_CHOICE -> MULTIPLE CHOICE)
+            let displayType = q.type.replace('_', ' '); 
+            
             let html = `
                 <div class="col-lg-4 col-md-6 col-12">
                     <div class="added-question-item">
-                        <span class="badge ${badgeClass} mb-2">${q.type}</span>
+                        <span class="badge ${badgeClass} mb-2">${displayType}</span>
                         <p class="mb-1 fw-bold">${q.question}</p>
                         <small class="text-muted">Answer: ${q.correct}</small>
-                        <button type="button" class="btn-remove-q" onclick="removeQuestion(${index})">&times;</button>
                     </div>
                 </div>
             `;
             container.append(html);
         });
 
-        // If the user selects a filter but no questions of that type exist
         if (visibleCount === 0) {
             container.append(`
                 <div class="col-12 text-center text-muted fst-italic my-4">
-                    No ${filterVal !== 'ALL' ? filterVal : ''} questions found.
+                    No questions found for this filter.
                 </div>
             `);
         }
 
     } else {
         wrapper.addClass("d-none");
+        emptyState.removeClass("d-none"); // Shows "No Questions Uploaded Yet" if empty
     }
 }
 
@@ -265,3 +253,82 @@ function removeQuestion(index) {
     questionsList.splice(index, 1);
     renderQuestions();
 }
+
+// --- NEW: UNIFIED BULK CSV UPLOAD ---
+$(document).on("click", "#btn-upload-csv", function() {
+    const assessmentId = $("#hidden_assessment_id").val();
+    
+    // Validation 1: Check if assessment is saved
+    if (!assessmentId) {
+        Swal.fire({
+            icon: 'warning',
+            title: 'Wait!',
+            text: 'You must save the Assessment Title and Description first before uploading questions.'
+        });
+        return;
+    }
+
+    const fileInput = $("#bulk_csv_file")[0];
+    
+    // Validation 2: Check if file is selected
+    if (fileInput.files.length === 0) {
+        Swal.fire({
+            icon: 'warning',
+            title: 'No File Selected',
+            text: 'Please select your CSV file first.'
+        });
+        return;
+    }
+
+    const file = fileInput.files[0];
+    const formData = new FormData();
+    formData.append("csv_file", file);
+    formData.append("assessment_id", assessmentId);
+
+    // Show loading popup
+    Swal.fire({
+        title: 'Uploading Questions...',
+        text: 'Validating your CSV data. Please wait.',
+        allowOutsideClick: false,
+        didOpen: () => {
+            Swal.showLoading();
+        }
+    });
+
+    // Send the file to our new PHP script
+    $.ajax({
+        url: '../backend/api/web/upload-questions.php',
+        type: 'POST',
+        data: formData,
+        processData: false,
+        contentType: false,
+        dataType: 'json',
+        success: function(response) {
+            if (response.status === 200) {
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Upload Successful!',
+                    text: response.message
+                }).then(() => {
+                    $("#bulk_csv_file").val(''); // Clear the file input
+                    questionsList = []; // Clear current preview list
+                    fetchQuestionsByType(assessmentId); // Refresh the preview UI
+                });
+            } else {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Upload Failed',
+                    text: response.message // Shows exactly which row had an error!
+                });
+            }
+        },
+        error: function(xhr) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Server Error',
+                text: 'An unexpected error occurred. Check the console.'
+            });
+            console.error(xhr.responseText);
+        }
+    });
+});

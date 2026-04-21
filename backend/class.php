@@ -1,5 +1,5 @@
 <?php
-include('db/db.php');
+require_once('db/db.php');
 date_default_timezone_set('Asia/Manila');
 
 class global_class extends db_connect

@@ -189,7 +189,7 @@ if ($level_id) {
 
         </div>
 
-        <form id="create-assessment-form" enctype="multipart/form-data">
+        <form action="../backend/api/web/upload-questions.php" method="POST" enctype="multipart/form-data">
             
             <div class="mb-5 px-md-3">
                 <h5 class="section-title">Assessment Details</h5>
@@ -221,71 +221,27 @@ if ($level_id) {
     <div id="questions-list" class="row g-3"></div>
 </div>
 
-            <h5 class="section-title">Add Question</h5>
-            <div class="row g-4 mb-5">
+            <h5 class="section-title">Manage Questions</h5>
+            
+            <div id="empty-state" class="text-center p-5 border rounded mb-4" style="background-color: #e9ecef; border: 2px dashed #bbb !important;">
+                <i class="bi bi-folder-x text-secondary" style="font-size: 4rem; opacity: 0.5;"></i>
+                <h5 class="text-secondary fw-bold mt-3">No Questions Uploaded Yet</h5>
+                <p class="text-muted small mb-0">Create the assessment details above, save it, and then upload your CSV file.</p>
+            </div>
+
+            <div class="q-card text-center p-4 border-danger shadow-sm">
+                <h6 class="fw-bold text-danger text-uppercase mb-3">
+                    <i class="bi bi-file-earmark-spreadsheet-fill fs-4 me-2"></i> Bulk Upload via CSV
+                </h6>
+                <p class="small text-muted mb-4">
+                    Upload your 6-column CSV file here. If there are any errors in your file, the system will reject the whole file to prevent broken quizzes.
+                </p>
                 
-                <div class="col-md-6 col-lg-6">
-                    <div class="q-card">
-                        <div class="q-card-title">Multiple Choice</div>
-                        <div class="row gx-2 align-items-center justify-content-center">
-                            <div class="col-auto">
-                                <button type="button" class="btn btn-create-manual" data-bs-toggle="modal" data-bs-target="#modalMCQ">
-                                    <i class="bi bi-plus-lg me-1"></i> Create Manually
-                                </button>
-                            </div>
-                            <div class="col">
-                                <input class="form-control form-control-sm custom-file-input" type="file" name="import_mcq" accept=".csv, .xlsx" title="Import Excel/CSV">
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="col-md-6 col-lg-6">
-                    <div class="q-card">
-                        <div class="q-card-title">True or False</div>
-                        <div class="row gx-2 align-items-center justify-content-center">
-                            <div class="col-auto">
-                                <button type="button" class="btn btn-create-manual" data-bs-toggle="modal" data-bs-target="#modalTF">
-                                    <i class="bi bi-plus-lg me-1"></i> Create Manually
-                                </button>
-                            </div>
-                            <div class="col">
-                                <input class="form-control form-control-sm custom-file-input" type="file" name="import_tf" accept=".csv, .xlsx" title="Import Excel/CSV">
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="col-md-6 col-lg-6">
-                    <div class="q-card">
-                        <div class="q-card-title">Identification</div>
-                        <div class="row gx-2 align-items-center justify-content-center">
-                            <div class="col-auto">
-                                <button type="button" class="btn btn-create-manual" data-bs-toggle="modal" data-bs-target="#modalIdent">
-                                    <i class="bi bi-plus-lg me-1"></i> Create Manually
-                                </button>
-                            </div>
-                            <div class="col">
-                                <input class="form-control form-control-sm custom-file-input" type="file" name="import_ident" accept=".csv, .xlsx" title="Import Excel/CSV">
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="col-md-6 col-lg-6">
-                    <div class="q-card">
-                        <div class="q-card-title">Jumbled Words</div>
-                        <div class="row gx-2 align-items-center justify-content-center">
-                            <div class="col-auto">
-                                <button type="button" class="btn btn-create-manual" data-bs-toggle="modal" data-bs-target="#modalJumbled">
-                                    <i class="bi bi-plus-lg me-1"></i> Create Manually
-                                </button>
-                            </div>
-                            <div class="col">
-                                <input class="form-control form-control-sm custom-file-input" type="file" name="import_jumbled" accept=".csv, .xlsx" title="Import Excel/CSV">
-                            </div>
-                        </div>
-                    </div>
+                <div class="d-flex justify-content-center align-items-center gap-3">
+                    <input class="form-control form-control-sm custom-file-input w-50" type="file" id="bulk_csv_file" accept=".csv" title="Upload Questions CSV">
+                    <button type="button" class="btn btn-create-manual px-4" id="btn-upload-csv">
+                        <i class="bi bi-cloud-arrow-up-fill me-2"></i> Upload Questions
+                    </button>
                 </div>
             </div>
 
@@ -432,6 +388,7 @@ if ($level_id) {
 </div>
 
 <?php include("components/footer-scripts.php"); ?>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script src="scripts/create_assessment.js?v=<?= time() ?>"></script>
 <script>
     $(document).ready(function () {

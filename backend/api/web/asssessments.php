@@ -73,6 +73,24 @@ if ($requestType == "GetAssessment") {
     $assessment_id = $_POST['assessment_id'];
 
     $controller->ImportJumbledWords($assessment_id, $questions);
+} elseif ($requestType == "GetUnifiedQuestions") {
+    $assessment_id = $_POST['assessment_id'];
+    
+    // THE FIX: We must import class.php before using global_class
+    require_once(__DIR__ . '/../../class.php');
+    $db = new global_class();
+    
+    $query = $db->conn->prepare("SELECT * FROM `questions` WHERE `assessment_id` = ?");
+    $query->bind_param("i", $assessment_id);
+    $query->execute();
+    $result = $query->get_result();
+    
+    $data = [];
+    while ($row = $result->fetch_assoc()) {
+        $data[] = $row;
+    }
+    
+    echo json_encode(["status" => "success", "data" => $data]);
 } else {
     http_response_code(400);
     echo "Invalid or missing requestType.";
