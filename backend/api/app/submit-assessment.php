@@ -15,8 +15,8 @@ if ($_SERVER['REQUEST_METHOD'] !== "POST") {
     exit;
 }
 
-$input = json_decode(file_get_contents("php://input"), true);
-$session_id  = trim($input['session_id']   ?? '');
+$input         = json_decode(file_get_contents("php://input"), true);
+$session_id    = trim($input['session_id']    ?? '');
 $assessment_id = (int)($input['assessment_id'] ?? 0);
 
 if (empty($session_id) || empty($assessment_id)) {
@@ -47,7 +47,19 @@ if (!$user) {
 }
 $lrn = $user['lrn'];
 
-// ── 2. Collect all submitted answers into one flat array ─────────────────────
+// ── 2. Block if already completed (passed) ───────────────────────────────────
+$already_done = $conn->prepare(
+    "SELECT id FROM assessment_takes WHERE assessment_id = ? AND lrn = ? AND is_completed = 1"
+);
+$already_done->bind_param("is", $assessment_id, $lrn);
+$already_done->execute();
+$already_done->store_result();
+if ($already_done->num_rows > 0) {
+    echo json_encode(['status' => 'already_taken', 'message' => 'Nasagutan mo na ang pagsusulit na ito.']);
+    exit;
+}
+
+// ── 3. Collect all submitted answers ─────────────────────────────────────────
 $all_answers = array_merge(
     $input['multiple_choices'] ?? [],
     $input['true_or_false']    ?? [],
@@ -61,7 +73,7 @@ if ($total_items === 0) {
     exit;
 }
 
-// ── 3. Grade ─────────────────────────────────────────────────────────────────
+// ── 4. Grade ──────────────────────────────────────────────────────────────────
 $score = 0;
 foreach ($all_answers as $item) {
     $q_id        = (int)($item['question_id'] ?? 0);
@@ -76,30 +88,25 @@ foreach ($all_answers as $item) {
     $correct = trim($q['correct_answer']);
 
     if ($q['type'] === 'multiple_choice') {
-        // Flutter sends the letter (A/B/C/D); compare via the choices JSON
-        $choices = json_decode($q['choices'], true) ?? [];
+        $choices       = json_decode($q['choices'], true) ?? [];
         $selected_text = $choices[strtoupper($user_answer)] ?? '';
         if (strtolower($selected_text) === strtolower($correct)) $score++;
-
     } elseif ($q['type'] === 'true_false') {
-        // DB stores "true"/"false"; Flutter sends 1/0
         $db_is_true = in_array(strtolower($correct), ['true', '1', 'tama']) ? 1 : 0;
         if ((int)$user_answer === $db_is_true) $score++;
-
     } else {
-        // identification / jumbled_word — case-insensitive exact match
         if (strtolower($user_answer) === strtolower($correct)) $score++;
     }
 }
 
-// ── 4. Resolve aralin_id from assessment ─────────────────────────────────────
+// ── 5. Resolve aralin_id from assessment ─────────────────────────────────────
 $aq = $conn->prepare("SELECT aralin_id FROM assessments WHERE id = ? LIMIT 1");
 $aq->bind_param("i", $assessment_id);
 $aq->execute();
 $aralin_row = $aq->get_result()->fetch_assoc();
 $aralin_id  = $aralin_row['aralin_id'] ?? null;
 
-// ── 5. Count how many times this student has attempted this quiz ──────────────
+// ── 6. Count attempts ─────────────────────────────────────────────────────────
 $attempt_q = $conn->prepare(
     "SELECT COUNT(*) AS cnt FROM assessment_takes_log WHERE assessment_id = ? AND lrn = ?"
 );
@@ -107,7 +114,7 @@ $attempt_q->bind_param("is", $assessment_id, $lrn);
 $attempt_q->execute();
 $attempt_cnt = (int)($attempt_q->get_result()->fetch_assoc()['cnt'] ?? 0) + 1;
 
-// Always log the attempt (win or lose)
+// Always log the raw attempt
 $log_stmt = $conn->prepare(
     "INSERT INTO assessment_takes_log (assessment_id, lrn, score, total, attempted_at)
      VALUES (?, ?, ?, ?, NOW())"
@@ -115,37 +122,49 @@ $log_stmt = $conn->prepare(
 $log_stmt->bind_param("isii", $assessment_id, $lrn, $score, $total_items);
 $log_stmt->execute();
 
-// ── 6. Pass / Fail branch ────────────────────────────────────────────────────
-$pass_threshold = 0.80;          // 80 %
+// ── 7. Pass / Fail branch ─────────────────────────────────────────────────────
+$pass_threshold = 0.80;
 $passed = ($total_items > 0) && ($score / $total_items) >= $pass_threshold;
 
 if ($passed) {
-    // Check if already recorded as passed (prevent duplicate bonus)
-    $already = $conn->prepare("SELECT id FROM assessment_takes WHERE assessment_id = ? AND lrn = ?");
-    $already->bind_param("is", $assessment_id, $lrn);
-    $already->execute();
-    $already->store_result();
-    $first_pass = ($already->num_rows === 0);
+    // Check first pass
+    $prev = $conn->prepare("SELECT id FROM assessment_takes WHERE assessment_id = ? AND lrn = ?");
+    $prev->bind_param("is", $assessment_id, $lrn);
+    $prev->execute();
+    $prev->store_result();
+    $first_pass = ($prev->num_rows === 0);
 
     if ($first_pass) {
-        // Record official pass
+        // Insert official pass record (is_completed = 1)
         $ins = $conn->prepare(
-            "INSERT INTO assessment_takes (assessment_id, lrn, points, total, created_at)
-             VALUES (?, ?, ?, ?, NOW())"
+            "INSERT INTO assessment_takes (assessment_id, lrn, points, total, is_completed, created_at)
+             VALUES (?, ?, ?, ?, 1, NOW())"
         );
         $ins->bind_param("isii", $assessment_id, $lrn, $score, $total_items);
         $ins->execute();
 
-        // Award taho bonus — 35 pts
+        // Save per-question answer log (only on first pass)
+        $ans_stmt = $conn->prepare(
+            "INSERT INTO assessment_answer_log (assessment_id, lrn, question_id, student_answer, attempted_at)
+             VALUES (?, ?, ?, ?, NOW())"
+        );
+        foreach ($all_answers as $item) {
+            $q_id        = (int)($item['question_id'] ?? 0);
+            $user_answer = trim((string)($item['answer'] ?? ''));
+            $ans_stmt->bind_param("isis", $assessment_id, $lrn, $q_id, $user_answer);
+            $ans_stmt->execute();
+        }
+
+        // Award taho bonus
         $bonus = 35;
         $upd = $conn->prepare("UPDATE users SET points = points + ? WHERE id = ?");
         $upd->bind_param("ii", $bonus, $user_id);
         $upd->execute();
     } else {
-        $bonus = 0; // Already passed once — no additional reward
+        $bonus = 0;
     }
 
-    // Clear the rewatch flag so the aralin shows as normal
+    // Clear the rewatch flag
     if ($aralin_id) {
         $clr = $conn->prepare(
             "UPDATE done_aralin SET needs_rewatch = 0 WHERE user_id = ? AND aralin_id = ?"
@@ -161,10 +180,11 @@ if ($passed) {
         'bonus_points' => $bonus,
         'first_pass'   => $first_pass,
         'attempts'     => $attempt_cnt,
+        'is_completed' => true,
     ]);
 
 } else {
-    // FAILED — set rewatch flag to lock quiz until they re-watch
+    // FAILED — set rewatch flag
     if ($aralin_id) {
         $rw = $conn->prepare(
             "UPDATE done_aralin SET needs_rewatch = 1 WHERE user_id = ? AND aralin_id = ?"
@@ -174,11 +194,12 @@ if ($passed) {
     }
 
     echo json_encode([
-        'status'      => 'failed',
-        'raw_points'  => $score,
-        'total_items' => $total_items,
-        'percentage'  => round(($score / $total_items) * 100),
-        'attempts'    => $attempt_cnt,
-        'message'     => 'Hindi nakamit ang 80%. Pakitingnan muli ang aralin bago muling sumubok.',
+        'status'       => 'failed',
+        'raw_points'   => $score,
+        'total_items'  => $total_items,
+        'percentage'   => round(($score / $total_items) * 100),
+        'attempts'     => $attempt_cnt,
+        'is_completed' => false,
+        'message'      => 'Hindi nakamit ang 80%. Pakitingnan muli ang aralin bago muling sumubok.',
     ]);
 }
