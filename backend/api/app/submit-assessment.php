@@ -47,7 +47,7 @@ if (!$user) {
 }
 $lrn = $user['lrn'];
 
-// ── 2. Block if already completed (passed) ───────────────────────────────────
+// ── 2. Block retakes if already passed ───────────────────────────────────────
 $already_done = $conn->prepare(
     "SELECT id FROM assessment_takes WHERE assessment_id = ? AND lrn = ? AND is_completed = 1"
 );
@@ -58,8 +58,9 @@ if ($already_done->num_rows > 0) {
     echo json_encode(['status' => 'already_taken', 'message' => 'Nasagutan mo na ang pagsusulit na ito.']);
     exit;
 }
+$already_done->close();
 
-// ── 3. Collect all submitted answers ─────────────────────────────────────────
+// ── 3. Collect answers ───────────────────────────────────────────────────────
 $all_answers = array_merge(
     $input['multiple_choices'] ?? [],
     $input['true_or_false']    ?? [],
@@ -83,6 +84,7 @@ foreach ($all_answers as $item) {
     $qstmt->bind_param("i", $q_id);
     $qstmt->execute();
     $q = $qstmt->get_result()->fetch_assoc();
+    $qstmt->close();
     if (!$q) continue;
 
     $correct = trim($q['correct_answer']);
@@ -99,51 +101,58 @@ foreach ($all_answers as $item) {
     }
 }
 
-// ── 5. Resolve aralin_id from assessment ─────────────────────────────────────
+// ── 5. Get aralin_id from assessment ─────────────────────────────────────────
 $aq = $conn->prepare("SELECT aralin_id FROM assessments WHERE id = ? LIMIT 1");
 $aq->bind_param("i", $assessment_id);
 $aq->execute();
 $aralin_row = $aq->get_result()->fetch_assoc();
-$aralin_id  = $aralin_row['aralin_id'] ?? null;
+$aq->close();
+$aralin_id = $aralin_row['aralin_id'] ?? null;
 
-// ── 6. Count attempts ─────────────────────────────────────────────────────────
+// ── 6. Count attempts (from log table) ───────────────────────────────────────
 $attempt_q = $conn->prepare(
     "SELECT COUNT(*) AS cnt FROM assessment_takes_log WHERE assessment_id = ? AND lrn = ?"
 );
 $attempt_q->bind_param("is", $assessment_id, $lrn);
 $attempt_q->execute();
 $attempt_cnt = (int)($attempt_q->get_result()->fetch_assoc()['cnt'] ?? 0) + 1;
+$attempt_q->close();
 
-// Always log the raw attempt
+// Always log this attempt regardless of pass/fail
 $log_stmt = $conn->prepare(
     "INSERT INTO assessment_takes_log (assessment_id, lrn, score, total, attempted_at)
      VALUES (?, ?, ?, ?, NOW())"
 );
 $log_stmt->bind_param("isii", $assessment_id, $lrn, $score, $total_items);
 $log_stmt->execute();
+$log_stmt->close();
 
-// ── 7. Pass / Fail branch ─────────────────────────────────────────────────────
+// ── 7. Pass / Fail ────────────────────────────────────────────────────────────
 $pass_threshold = 0.80;
 $passed = ($total_items > 0) && ($score / $total_items) >= $pass_threshold;
 
 if ($passed) {
-    // Check first pass
-    $prev = $conn->prepare("SELECT id FROM assessment_takes WHERE assessment_id = ? AND lrn = ?");
+    // Check first pass (no completed record yet)
+    $prev = $conn->prepare(
+        "SELECT id FROM assessment_takes WHERE assessment_id = ? AND lrn = ?"
+    );
     $prev->bind_param("is", $assessment_id, $lrn);
     $prev->execute();
     $prev->store_result();
     $first_pass = ($prev->num_rows === 0);
+    $prev->close();
 
     if ($first_pass) {
-        // Insert official pass record (is_completed = 1)
+        // Insert official pass record
         $ins = $conn->prepare(
             "INSERT INTO assessment_takes (assessment_id, lrn, points, total, is_completed, created_at)
              VALUES (?, ?, ?, ?, 1, NOW())"
         );
         $ins->bind_param("isii", $assessment_id, $lrn, $score, $total_items);
         $ins->execute();
+        $ins->close();
 
-        // Save per-question answer log (only on first pass)
+        // Save every answer for history view
         $ans_stmt = $conn->prepare(
             "INSERT INTO assessment_answer_log (assessment_id, lrn, question_id, student_answer, attempted_at)
              VALUES (?, ?, ?, ?, NOW())"
@@ -154,43 +163,47 @@ if ($passed) {
             $ans_stmt->bind_param("isis", $assessment_id, $lrn, $q_id, $user_answer);
             $ans_stmt->execute();
         }
+        $ans_stmt->close();
 
-        // Award taho bonus
+        // Award bonus points
         $bonus = 35;
         $upd = $conn->prepare("UPDATE users SET points = points + ? WHERE id = ?");
         $upd->bind_param("ii", $bonus, $user_id);
         $upd->execute();
+        $upd->close();
     } else {
         $bonus = 0;
     }
 
-    // Clear the rewatch flag
+    // Clear rewatch flag
     if ($aralin_id) {
         $clr = $conn->prepare(
             "UPDATE done_aralin SET needs_rewatch = 0 WHERE user_id = ? AND aralin_id = ?"
         );
         $clr->bind_param("ii", $user_id, $aralin_id);
         $clr->execute();
+        $clr->close();
     }
 
     echo json_encode([
         'status'       => 'success',
         'raw_points'   => $score,
         'total_items'  => $total_items,
-        'bonus_points' => $bonus,
+        'bonus_points' => $bonus ?? 0,
         'first_pass'   => $first_pass,
         'attempts'     => $attempt_cnt,
         'is_completed' => true,
     ]);
 
 } else {
-    // FAILED — set rewatch flag
+    // FAILED — set rewatch flag so they must watch the video again
     if ($aralin_id) {
         $rw = $conn->prepare(
             "UPDATE done_aralin SET needs_rewatch = 1 WHERE user_id = ? AND aralin_id = ?"
         );
         $rw->bind_param("ii", $user_id, $aralin_id);
         $rw->execute();
+        $rw->close();
     }
 
     echo json_encode([
