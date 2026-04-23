@@ -179,8 +179,20 @@ if ($level_id) {
         background-color: #fff;
         border-radius: 8px;
         box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-        overflow: hidden;
         border: 1px solid #dee2e6;
+        overflow: visible; 
+    }
+    /* Stops Bootstrap from clipping the bottom of the dropdown */
+    .table-responsive {
+        overflow: visible !important;
+    }
+
+    /* Since we removed overflow: hidden, we need to manually round the top corners of the header */
+    .custom-table thead th:first-child {
+        border-top-left-radius: 8px;
+    }
+    .custom-table thead th:last-child {
+        border-top-right-radius: 8px;
     }
     .custom-table { width: 100%; margin-bottom: 0; border-collapse: collapse; }
     .custom-table thead {

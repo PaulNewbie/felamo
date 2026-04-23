@@ -2,13 +2,13 @@ let questionsList = []; // Array to store questions temporarily
 
 $(document).ready(function () {
     
-    // --- NEW: FETCH EXISTING ASSESSMENT AND QUESTIONS ON LOAD ---
-    const levelId = $("#hidden_level_id").val();
-    if (levelId) {
-        fetchExistingAssessment(levelId);
+    // --- UPDATED: FETCH EXISTING ASSESSMENT USING ARALIN ID ---
+    const aralinId = $("#hidden_aralin_id").val();
+    if (aralinId) {
+        fetchExistingAssessment(aralinId);
     }
 
-    // --- NEW: Listen for dropdown filter changes ---
+    // --- Listen for dropdown filter changes ---
     $("#question-filter").on("change", function() {
         renderQuestions();
     });
@@ -21,11 +21,19 @@ $(document).ready(function () {
         if (!title) { alert("Please enter an Assessment Title."); return; }
 
         let formData = new FormData(this);
+        let assessmentId = $("#hidden_assessment_id").val();
+
+        // FIX 1: REDUNDANCY CHECK - Update if it exists, Create if it doesn't
+        if (assessmentId) {
+            formData.append('requestType', 'UpdateAssessment');
+            formData.append('assessment_id', assessmentId);
+        } else {
+            formData.append('requestType', 'CreateAssessment');
+        }
 
         // Append Fixed Data
-        formData.append('requestType', 'CreateAssessment');
         formData.append('teacher_id', $("#hidden_user_id").val());
-        formData.append('level_id', $("#hidden_level_id").val());
+        formData.append('aralin_id', $("#hidden_aralin_id").val()); // CRITICAL: Uses aralin_id now
         
         // Append Defaults for removed fields
         formData.append('due_date', ''); 
@@ -47,16 +55,28 @@ $(document).ready(function () {
                 $(".btn-submit").prop("disabled", true).html('Saving...');
             },
             success: function (response) {
-                $(".btn-submit").prop("disabled", false).html('<i class="bi bi-check-circle me-2"></i> Save Assessment');
+                $(".btn-submit").prop("disabled", false).html('<i class="bi bi-check-circle me-2"></i> Step 1: Save Details');
                 if (response.status === "success") {
-                    alert("Assessment saved successfully!");
-                    window.location.href = "levels.php"; 
+                    
+                    // FIX 2: NO MORE REDIRECTING! Show popup and unlock CSV.
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Details Saved!',
+                        text: 'Database record created. You can now upload your CSV questions below!',
+                        timer: 2500,
+                        showConfirmButton: false
+                    });
+                    
+                    // Fetch the newly created ID to unlock the CSV upload button
+                    const currentAralinId = $("#hidden_aralin_id").val();
+                    fetchExistingAssessment(currentAralinId); 
+                    
                 } else {
                     alert("Error: " + (response.message || "Unknown error"));
                 }
             },
             error: function (xhr) {
-                $(".btn-submit").prop("disabled", false).html('<i class="bi bi-check-circle me-2"></i> Save Assessment');
+                $(".btn-submit").prop("disabled", false).html('<i class="bi bi-check-circle me-2"></i> Step 1: Save Details');
                 console.error("Error:", xhr.responseText);
                 alert("Server Error.");
             }
@@ -64,16 +84,14 @@ $(document).ready(function () {
     });
 });
 
-// --- NEW FUNCTION: Fetch existing assessment data ---
-function fetchExistingAssessment(levelId) {
+// --- UPDATED FUNCTION: Fetch existing assessment data using aralin_id ---
+function fetchExistingAssessment(aralinId) {
     $.ajax({
         type: "POST",
         url: "../backend/api/web/asssessments.php",
-        data: { requestType: 'GetAssessment', level_id: levelId },
+        data: { requestType: 'GetAssessment', aralin_id: aralinId }, // CRITICAL: Sent as aralin_id
         dataType: "json",
         success: function(response) {
-            // FIX: Check if data exists and get the first record (response.data[0]) 
-            // because your backend returns an array of assessments.
             if (response.status === "success" && response.data && response.data.length > 0) {
                 let assessment = response.data[0]; 
                 
@@ -90,12 +108,12 @@ function fetchExistingAssessment(levelId) {
             }
         },
         error: function(err) {
-            console.log("No existing assessment found for this level (or error occurred).", err);
+            console.log("No existing assessment found for this lesson (or error occurred).", err);
         }
     });
 }
 
-// --- UPDATED FUNCTION: Fetch questions from the NEW Unified Table ---
+// --- Fetch questions from the NEW Unified Table ---
 function fetchQuestionsByType(assessmentId) {
     $.ajax({
         type: "POST",
@@ -104,6 +122,7 @@ function fetchQuestionsByType(assessmentId) {
         dataType: "json",
         success: function(response) {
             if (response.status === "success" && response.data && response.data.length > 0) {
+                questionsList = []; // Clear before re-populating to prevent duplicates in UI
                 response.data.forEach(q => {
                     // Map the new unified database fields to the UI
                     let qData = { 
@@ -120,6 +139,7 @@ function fetchQuestionsByType(assessmentId) {
         }
     });
 }
+
 // --- HELPER FOR MODAL SELECTION UI ---
 function selectRadio(val) {
     let radioBtn = $("#radio" + val);
@@ -183,11 +203,11 @@ function saveQuestion(type) {
     $(".modal").modal("hide");
 }
 
-// --- UPDATED RENDER LIST FUNCTION ---
+// --- RENDER LIST FUNCTION ---
 function renderQuestions() {
     let container = $("#questions-list");
     let wrapper = $("#questions-preview-container");
-    let emptyState = $("#empty-state"); // <--- We now grab the empty state box
+    let emptyState = $("#empty-state");
     
     container.empty();
 
@@ -254,7 +274,7 @@ function removeQuestion(index) {
     renderQuestions();
 }
 
-// --- NEW: UNIFIED BULK CSV UPLOAD ---
+// --- UNIFIED BULK CSV UPLOAD ---
 $(document).on("click", "#btn-upload-csv", function() {
     const assessmentId = $("#hidden_assessment_id").val();
     
@@ -262,8 +282,8 @@ $(document).on("click", "#btn-upload-csv", function() {
     if (!assessmentId) {
         Swal.fire({
             icon: 'warning',
-            title: 'Wait!',
-            text: 'You must save the Assessment Title and Description first before uploading questions.'
+            title: 'Database Record Missing',
+            text: 'You must click "Step 1: Save Details" first to generate a database record. Once saved, you can upload your CSV!'
         });
         return;
     }
@@ -318,7 +338,7 @@ $(document).on("click", "#btn-upload-csv", function() {
                 Swal.fire({
                     icon: 'error',
                     title: 'Upload Failed',
-                    text: response.message // Shows exactly which row had an error!
+                    text: response.message // Shows exactly which row had an error
                 });
             }
         },

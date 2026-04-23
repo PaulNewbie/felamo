@@ -101,17 +101,19 @@ class HomeController extends db_connect
 
 
         // -----
-        $levelStatsSql = "
+        $levelStatsSql = "      
         SELECT 
             l.id,
             l.level,
             COUNT(CASE WHEN at.points >= (at.total * 0.5) THEN 1 END) AS passed_count,
             COUNT(CASE WHEN at.points < (at.total * 0.5) THEN 1 END) AS failed_count
         FROM `levels` AS l
-        LEFT JOIN `assessments` AS a ON a.level_id = l.id
+        /* THE FIX: We now bridge through the 'aralin' table! */
+        LEFT JOIN `aralin` AS ar ON ar.level_id = l.id
+        LEFT JOIN `assessments` AS a ON a.aralin_id = ar.id
         LEFT JOIN `assessment_takes` AS at ON at.assessment_id = a.id
         WHERE l.level BETWEEN 1 AND 4 AND l.teacher_id = ?
-        GROUP BY l.level
+        GROUP BY l.id, l.level
         ORDER BY l.level ASC
     ";
 

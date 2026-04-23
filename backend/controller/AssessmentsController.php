@@ -13,57 +13,42 @@ class AssesmentsController extends db_connect
         $this->connect();
     }
 
-    public function GetAssessment($level_id)
+    public function GetAssessment($aralin_id)
     {
-        $q = $this->conn->prepare("
-        SELECT *
-        FROM `assessments`
-        WHERE level_id = ?");
+        // THE FIX: Query the new aralin_id column
+        $q = $this->conn->prepare("SELECT * FROM `assessments` WHERE aralin_id = ?");
 
         if (!$q) {
-            echo json_encode([
-                'status' => 'error',
-                'message' => 'SQL prepare failed: ' . $this->conn->error
-            ]);
+            echo json_encode(['status' => 'error', 'message' => 'SQL prepare failed: ' . $this->conn->error]);
             return;
         }
 
-        $q->bind_param("i", $level_id);
+        $q->bind_param("i", $aralin_id);
 
         if ($q->execute()) {
             $result = $q->get_result();
             $levels = [];
-
             while ($row = $result->fetch_assoc()) {
                 $levels[] = $row;
             }
-
-            echo json_encode([
-                'status' => 'success',
-                'message' => 'success',
-                'data' => $levels
-            ]);
+            echo json_encode(['status' => 'success', 'data' => $levels]);
         } else {
-            echo json_encode([
-                'status' => 'error',
-                'message' => 'Execute failed: ' . $q->error
-            ]);
+            echo json_encode(['status' => 'error', 'message' => 'Execute failed: ' . $q->error]);
         }
-
         $q->close();
     }
 
-
-    public function CreateAssessment($level_id, $assessment_id, $title, $description)
+    public function CreateAssessment($aralin_id, $assessment_id, $title, $description)
     {
         if (empty($assessment_id)) {
-            $stmt = $this->conn->prepare("INSERT INTO assessments (level_id, title, description) VALUES (?, ?, ?)");
+            // THE FIX: Insert using aralin_id
+            $stmt = $this->conn->prepare("INSERT INTO assessments (aralin_id, title, description) VALUES (?, ?, ?)");
             if (!$stmt) {
                 echo json_encode(['status' => 'error', 'message' => 'Prepare failed: ' . $this->conn->error]);
                 return;
             }
 
-            $stmt->bind_param("iss", $level_id, $title, $description);
+            $stmt->bind_param("iss", $aralin_id, $title, $description);
 
             if ($stmt->execute()) {
                 echo json_encode([
@@ -74,23 +59,22 @@ class AssesmentsController extends db_connect
             } else {
                 echo json_encode(['status' => 'error', 'message' => 'Insert failed: ' . $stmt->error]);
             }
-
             $stmt->close();
         } else {
-            $stmt = $this->conn->prepare("UPDATE assessments SET title = ?, description = ?, level_id = ? WHERE id = ?");
+            // THE FIX: Update using aralin_id
+            $stmt = $this->conn->prepare("UPDATE assessments SET title = ?, description = ?, aralin_id = ? WHERE id = ?");
             if (!$stmt) {
                 echo json_encode(['status' => 'error', 'message' => 'Prepare failed: ' . $this->conn->error]);
                 return;
             }
 
-            $stmt->bind_param("ssii", $title, $description, $level_id, $assessment_id);
+            $stmt->bind_param("ssii", $title, $description, $aralin_id, $assessment_id);
 
             if ($stmt->execute()) {
                 echo json_encode(['status' => 'success', 'message' => 'Assessment updated successfully.']);
             } else {
                 echo json_encode(['status' => 'error', 'message' => 'Update failed: ' . $stmt->error]);
             }
-
             $stmt->close();
         }
     }

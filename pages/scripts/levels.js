@@ -41,25 +41,33 @@ $(document).ready(function () {
                                             Action
                                         </button>
                                         <ul class="dropdown-menu dropdown-menu-end shadow">
+                                            <li>
+                                                <a class="dropdown-item edit-aralin-btn" href="#" 
+                                                data-id="${aralin.id}" 
+                                                data-title="${aralin.title}" 
+                                                data-summary="${aralin.summary}" 
+                                                data-details="${aralin.details}" 
+                                                data-attachment="${videoFile}">
+                                                <i class="bi bi-pencil-square me-2"></i> Edit
+                                                </a>
+                                            </li>
                                             
                                             <li>
-                                                <a class="dropdown-item" href="level_details.php?level=${level.id}">
-                                                    <i class="bi bi-eye me-2"></i> View Details
+                                                <a class="dropdown-item text-success" href="create_assessment.php?aralin=${aralin.id}">
+                                                    <i class="bi bi-card-checklist me-2"></i> Manage Assessment
                                                 </a>
                                             </li>
-
                                             <li>
-                                                <a class="dropdown-item" href="create_assessment.php?level=${level.id}">
-                                                    <i class="bi bi-pencil-square me-2"></i> Create Assessment
+                                                <a class="dropdown-item text-primary" href="${videoFile ? '../backend/storage/videos/' + videoFile : '#'}" target="_blank" ${!videoFile ? 'style="pointer-events: none; opacity: 0.5;"' : ''}>
+                                                    <i class="bi bi-play-circle me-2"></i> Preview Video
                                                 </a>
                                             </li>
-
+                                            <li><hr class="dropdown-divider"></li>
                                             <li>
-                                                <a class="dropdown-item" href="taken_assessments.php?level=${level.id}">
-                                                    <i class="bi bi-journal-check me-2"></i> View Taken Assessment
+                                                <a class="dropdown-item text-danger delete-aralin-btn" href="#" data-id="${aralin.id}">
+                                                    <i class="bi bi-trash me-2"></i> Delete
                                                 </a>
                                             </li>
-
                                         </ul>
                                     </div>
                                 </div>

@@ -6,15 +6,17 @@ $requestType = $_POST['requestType'];
 $controller = new AssesmentsController();
 
 if ($requestType == "GetAssessment") {
-    $level_id = $_POST['level_id'];
-    $controller->GetAssessment($level_id);
+    // THE FIX: Accept aralin_id instead of level_id
+    $aralin_id = $_POST['aralin_id'];
+    $controller->GetAssessment($aralin_id);
 } elseif ($requestType == "CreateAssessment") {
-    $level_id = $_POST['level_id'];
+    // THE FIX: Accept aralin_id instead of level_id
+    $aralin_id = $_POST['aralin_id']; 
     $assessment_id = $_POST['assessment_id'] ?? null;
     $title = $_POST['title'];
     $description = $_POST['description'];
 
-    $controller->CreateAssessment($level_id, $assessment_id, $title, $description);
+    $controller->CreateAssessment($aralin_id, $assessment_id, $title, $description);
 } elseif ($requestType == "InsertMultipleChoice") {
     $assessment_id = $_POST['assessment_id'];
     $question = $_POST['question'];

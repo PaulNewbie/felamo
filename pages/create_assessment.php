@@ -1,27 +1,24 @@
 <?php 
 include("components/header.php"); 
 
-$level_id = isset($_GET['level']) ? $_GET['level'] : null;
-$levelText = "Unknown"; // Default value
+$aralin_id = isset($_GET['aralin']) ? $_GET['aralin'] : null;
+$aralinText = "Unknown"; // Default value
+$aralin_no = "?"; // Default variable for the Aralin Number
 
-if ($level_id) {
+if ($aralin_id) {
     try {
         if (isset($AuthController) && method_exists($AuthController, 'GetUsingId')) {
-            $levelResult = $AuthController->GetUsingId("levels", $level_id);
+            $aralinResult = $AuthController->GetUsingId("aralin", $aralin_id);
             
-            // Check if result is valid object
-            if ($levelResult && is_object($levelResult) && $levelResult->num_rows > 0) {
-                $level = $levelResult->fetch_assoc();
-
-                // --- ADDED: Number to Word Mapping ---
-                $levelNum = $level['level'];
-                $ordinalMap = [
-                    1 => "Unang",
-                    2 => "Ikalawang",
-                    3 => "Ikatlong",
-                    4 => "Ika-apat" 
-                ];
-                $levelText = isset($ordinalMap[$levelNum]) ? $ordinalMap[$levelNum] : $levelNum;
+            if ($aralinResult && is_object($aralinResult) && $aralinResult->num_rows > 0) {
+                $aralin = $aralinResult->fetch_assoc();
+                
+                $aralinText = isset($aralin['title']) ? $aralin['title'] : "Aralin";
+                
+                // Fetch the actual aralin_no from the database row
+                // (Assuming your column is named 'aralin_no'. Change it if it is named something else)
+                $aralin_no = isset($aralin['aralin_no']) ? $aralin['aralin_no'] : "?"; 
+                
             } else {
                 echo "<script>window.location.href='levels.php';</script>";
                 exit();
@@ -39,7 +36,7 @@ if ($level_id) {
 ?>
 
 <input type="hidden" id="hidden_user_id" value="<?= isset($auth_user_id) ? $auth_user_id : '' ?>">
-<input type="hidden" id="hidden_level_id" value="<?= htmlspecialchars($level_id) ?>">
+<input type="hidden" id="hidden_aralin_id" value="<?= htmlspecialchars($aralin_id) ?>">
 <input type="hidden" id="hidden_assessment_id" name="assessment_id" value="">
 
 <style>
@@ -139,15 +136,15 @@ if ($level_id) {
 
     /* --- PREVIEW LIST --- */
     .added-question-item { 
-    border-left: 4px solid #a71b1b; 
-    background: #fff; 
-    padding: 15px; 
-    margin-bottom: 10px; /* You can remove this margin if you want, since g-3 handles gaps now */
-    border-radius: 4px; 
-    position: relative; 
-    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-    height: 100%; /* Add this to make columns equal height */
-}
+        border-left: 4px solid #a71b1b; 
+        background: #fff; 
+        padding: 15px; 
+        margin-bottom: 10px;
+        border-radius: 4px; 
+        position: relative; 
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        height: 100%; 
+    }
     .btn-remove-q { position: absolute; top: 10px; right: 10px; color: #dc3545; border: none; background: none; font-size: 1.1rem; }
 
     /* --- MODALS UI --- */
@@ -181,7 +178,7 @@ if ($level_id) {
                     BACK
                 </a>
                 <h4 class="m-0 fw-bold text-uppercase">
-                    Assessment ng <?= htmlspecialchars($levelText) ?> Markahan
+                    Assessment para sa <?= htmlspecialchars($aralinText) ?>
                 </h4>
             </div>
 
@@ -189,13 +186,21 @@ if ($level_id) {
 
         </div>
 
-        <form action="../backend/api/web/upload-questions.php" method="POST" enctype="multipart/form-data">
+        <form id="create-assessment-form" enctype="multipart/form-data">
             
             <div class="mb-5 px-md-3">
                 <h5 class="section-title">Assessment Details</h5>
+                
+                <div class="alert d-flex align-items-center mb-4" role="alert" style="background-color: #e3f2fd; border: 1px solid #90caf9; color: #0d47a1; border-radius: 8px; padding: 12px 20px;">
+                    <i class="bi bi-info-circle-fill fs-4 me-3"></i>
+                    <div>
+                        Gumagawa ka ng pagsusulit para sa <strong>Aralin <?= htmlspecialchars($aralin_no) ?>: <?= htmlspecialchars($aralinText) ?></strong>.
+                    </div>
+                </div>
+                
                 <div class="mb-3">
-                    <label class="form-label">Title <span class="text-danger">*</span></label>
-                    <input type="text" class="form-control" id="assessment_title" name="title" placeholder="e.g. Unang Markahan - Quiz 1" required>
+                    <label class="form-label">Assessment Title <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control" id="assessment_title" name="title" placeholder="e.g. Aralin <?= htmlspecialchars($aralin_no) ?> - Pagsusulit" required>
                 </div>
                 <div class="mb-0">
                     <label class="form-label">Description</label>
@@ -204,22 +209,22 @@ if ($level_id) {
             </div>
 
             <div id="questions-preview-container" class="mb-4 d-none px-md-3">
-    <div class="d-flex justify-content-between align-items-center mb-3">
-        <h6 class="fw-bold text-secondary m-0">ADDED QUESTIONS (<span id="q-count">0</span>)</h6>
-        
-        <div style="width: 200px;">
-            <select id="question-filter" class="form-select form-select-sm border-secondary">
-                <option value="ALL">All Types</option>
-                <option value="MCQ">Multiple Choice</option>
-                <option value="TF">True or False</option>
-                <option value="IDENT">Identification</option>
-                <option value="JUMBLED">Jumbled Words</option>
-            </select>
-        </div>
-    </div>
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h6 class="fw-bold text-secondary m-0">ADDED QUESTIONS (<span id="q-count">0</span>)</h6>
+                    
+                    <div style="width: 200px;">
+                        <select id="question-filter" class="form-select form-select-sm border-secondary">
+                            <option value="ALL">All Types</option>
+                            <option value="MCQ">Multiple Choice</option>
+                            <option value="TF">True or False</option>
+                            <option value="IDENT">Identification</option>
+                            <option value="JUMBLED">Jumbled Words</option>
+                        </select>
+                    </div>
+                </div>
 
-    <div id="questions-list" class="row g-3"></div>
-</div>
+                <div id="questions-list" class="row g-3"></div>
+            </div>
 
             <h5 class="section-title">Manage Questions</h5>
             
@@ -240,7 +245,7 @@ if ($level_id) {
                 <div class="d-flex justify-content-center align-items-center gap-3">
                     <input class="form-control form-control-sm custom-file-input w-50" type="file" id="bulk_csv_file" accept=".csv" title="Upload Questions CSV">
                     <button type="button" class="btn btn-create-manual px-4" id="btn-upload-csv">
-                        <i class="bi bi-cloud-arrow-up-fill me-2"></i> Upload Questions
+                        <i class="bi bi-cloud-arrow-up-fill me-2"></i> Step 2: Upload CSV
                     </button>
                 </div>
             </div>
@@ -248,7 +253,7 @@ if ($level_id) {
             <div class="d-flex justify-content-end pb-5 border-top pt-4">
                 <a href="levels.php" class="btn btn-light me-2 border py-2 px-4">Cancel</a>
                 <button type="submit" class="btn btn-submit shadow px-4">
-                    <i class="bi bi-check-circle me-2"></i> Save Assessment
+                    <i class="bi bi-check-circle me-2"></i> Step 1: Save Details
                 </button>
             </div>
         </form>

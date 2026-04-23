@@ -61,12 +61,18 @@ $(document).ready(function () {
                                             <ul class="dropdown-menu dropdown-menu-end shadow">
                                                 <li>
                                                     <a class="dropdown-item edit-aralin-btn" href="#" 
-                                                       data-id="${aralin.id}" 
-                                                       data-title="${aralin.title}" 
-                                                       data-summary="${aralin.summary}" 
-                                                       data-details="${aralin.details}" 
-                                                       data-attachment="${videoFile}">
-                                                       <i class="bi bi-pencil-square me-2"></i> Edit
+                                                    data-id="${aralin.id}" 
+                                                    data-title="${aralin.title}" 
+                                                    data-summary="${aralin.summary}" 
+                                                    data-details="${aralin.details}" 
+                                                    data-attachment="${videoFile}">
+                                                    <i class="bi bi-pencil-square me-2"></i> Edit
+                                                    </a>
+                                                </li>
+                                                
+                                                <li>
+                                                    <a class="dropdown-item text-success fw-bold" href="create_assessment.php?aralin=${aralin.id}">
+                                                        <i class="bi bi-card-checklist me-2"></i> Manage Assessment
                                                     </a>
                                                 </li>
                                                 <li>

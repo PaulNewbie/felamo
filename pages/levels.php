@@ -212,7 +212,6 @@ include("components/header.php");
                                                 </button>
                                                 <ul class="dropdown-menu dropdown-menu-end shadow">
                                                     <li><a class="dropdown-item" href="level_details.php?level=${level.id}"><i class="bi bi-eye me-2"></i> View Details</a></li>
-                                                    <li><a class="dropdown-item" href="create_assessment.php?level=${level.id}"><i class="bi bi-pencil-square me-2"></i> Create Assessment</a></li>
                                                     <li><a class="dropdown-item" href="taken_assessments.php?level=${level.id}"><i class="bi bi-journal-check me-2"></i> View Taken Assessment</a></li>
                                                 </ul>
                                             </div>
