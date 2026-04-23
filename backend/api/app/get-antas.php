@@ -17,13 +17,6 @@ if ($requestMethod !== "POST") {
     exit;
 }
 
-/*
-note: update markahan is_done if passed the quiz
-note: per video add is_done.
-
-note: after submiting if no passed reset lang yung antas na is_done = false;
-*/
-
 $input = json_decode(file_get_contents("php://input"), true);
 $session_id = trim($input['session_id'] ?? '');
 
@@ -114,6 +107,8 @@ $join_stmt->execute();
 $result = $join_stmt->get_result();
 
 $levels = [];
+// Keep track of the previous level's completion status to cascade unlocks
+$previous_level_done = true; 
 
 while ($row = $result->fetch_assoc()) {
     $level_id = $row['level_id'];
@@ -121,29 +116,27 @@ while ($row = $result->fetch_assoc()) {
     if (!isset($levels[$level_id])) {
         $title = '';
         switch ($row['level']) {
-            // case 1: $title = 'Panimulang Antas'; break;
-            // case 2: $title = 'Madaling Antas'; break;
-            // case 3: $title = 'Mahirap na Antas'; break;
-            // case 4: $title = 'Huling Antas'; break;
             case 1: $title = 'Unang markahan'; break;
             case 2: $title = 'Pangalawang markahan'; break;
             case 3: $title = 'Pangatlong markahan'; break;
             case 4: $title = 'Ika apat na markahahn'; break;
         }
 
+        // FIX: Count total assessments in this level vs. how many the student PASSED
         $check_done_stmt = $conn->prepare("
-            SELECT 1 FROM assessment_takes AS at 
-            JOIN assessments AS a ON at.assessment_id = a.id
-            JOIN aralin AS ar ON a.aralin_id = ar.id 
-            WHERE ar.level_id = ? AND at.lrn = ?
-            LIMIT 1
+            SELECT 
+                (SELECT COUNT(a.id) FROM assessments a JOIN aralin ar ON a.aralin_id = ar.id WHERE ar.level_id = ?) as total_assessments,
+                (SELECT COUNT(DISTINCT at.assessment_id) FROM assessment_takes at JOIN assessments a ON at.assessment_id = a.id JOIN aralin ar ON a.aralin_id = ar.id WHERE ar.level_id = ? AND at.lrn = ? AND at.is_completed = 1) as passed_assessments
         ");
 
-        $check_done_stmt->bind_param("is", $level_id, $student_lrn);
+        $check_done_stmt->bind_param("iis", $level_id, $level_id, $student_lrn);
         $check_done_stmt->execute();
-        $check_done_stmt->store_result();
-        $is_done = $check_done_stmt->num_rows > 0;
+        $check_done_stmt->bind_result($total_assessments, $passed_assessments);
+        $check_done_stmt->fetch();
         $check_done_stmt->close();
+
+        // A markahan is ONLY done if there are assessments AND the student passed all of them
+        $is_done = ($total_assessments > 0 && $total_assessments == $passed_assessments);
 
         $levels[$level_id] = [
             'id' => $level_id,
@@ -151,8 +144,12 @@ while ($row = $result->fetch_assoc()) {
             'level' => $row['level'],
             'title' => $title,
             'is_done' => $is_done,
+            'is_unlocked' => $previous_level_done, // Added explicitly for safety
             'aralins' => []
         ];
+        
+        // Update variable for the NEXT level to check in the loop
+        $previous_level_done = $is_done; 
     }
 
     if (!empty($row['aralin_id'])) {

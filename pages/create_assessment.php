@@ -199,8 +199,12 @@ if ($aralin_id) {
                 </div>
                 
                 <div class="mb-3">
-                    <label class="form-label">Assessment Title <span class="text-danger">*</span></label>
-                    <input type="text" class="form-control" id="assessment_title" name="title" placeholder="e.g. Aralin <?= htmlspecialchars($aralin_no) ?> - Pagsusulit" required>
+                    <label class="form-label text-secondary fw-bold text-uppercase fs-7">Difficulty Level</label>
+                    <select class="form-select border-secondary fw-bold difficulty-select" required>
+                        <option value="easy" class="text-success">Easy</option>
+                        <option value="medium" class="text-warning">Medium</option>
+                        <option value="hard" class="text-danger">Hard</option>
+                    </select>
                 </div>
                 <div class="mb-0">
                     <label class="form-label">Description</label>
@@ -210,15 +214,20 @@ if ($aralin_id) {
 
             <div id="questions-preview-container" class="mb-4 d-none px-md-3">
                 <div class="d-flex justify-content-between align-items-center mb-3">
-                    <h6 class="fw-bold text-secondary m-0">ADDED QUESTIONS (<span id="q-count">0</span>)</h6>
-                    
-                    <div style="width: 200px;">
-                        <select id="question-filter" class="form-select form-select-sm border-secondary">
+                    <h6 class="fw-bold text-secondary m-0">ADDED QUESTIONS (<span id="q-count">0</span>)</h6>             
+                    <div class="d-flex gap-2">
+                        <select id="question-filter" class="form-select form-select-sm border-secondary" style="width: 150px;">
                             <option value="ALL">All Types</option>
                             <option value="MCQ">Multiple Choice</option>
                             <option value="TF">True or False</option>
                             <option value="IDENT">Identification</option>
                             <option value="JUMBLED">Jumbled Words</option>
+                        </select>
+                        <select id="difficulty-filter" class="form-select form-select-sm border-secondary" style="width: 120px;">
+                            <option value="ALL">All Levels</option>
+                            <option value="easy">Easy</option>
+                            <option value="medium">Medium</option>
+                            <option value="hard">Hard</option>
                         </select>
                     </div>
                 </div>

@@ -9,7 +9,7 @@ if ($requestType == "GetAssessment") {
     // THE FIX: Accept aralin_id instead of level_id
     $aralin_id = $_POST['aralin_id'];
     $controller->GetAssessment($aralin_id);
-} elseif ($requestType == "CreateAssessment") {
+} elseif ($requestType == "CreateAssessment" || $requestType == "UpdateAssessment") {
     // THE FIX: Accept aralin_id instead of level_id
     $aralin_id = $_POST['aralin_id']; 
     $assessment_id = $_POST['assessment_id'] ?? null;
@@ -75,6 +75,58 @@ if ($requestType == "GetAssessment") {
     $assessment_id = $_POST['assessment_id'];
 
     $controller->ImportJumbledWords($assessment_id, $questions);
+} elseif ($requestType == "UpdateSingleQuestion") {
+    require_once(__DIR__ . '/../../class.php');
+    $db = new global_class();
+
+    $question_id = $_POST['question_id'];
+    $question_text = $_POST['question_text'];
+    $correct_answer = $_POST['correct_answer'];
+    $choices = $_POST['choices'] ?? null;
+    $difficulty = $_POST['difficulty'] ?? 'easy';
+
+    if (!empty($choices)) {
+        // Update MCQ with choices JSON
+        $stmt = $db->conn->prepare("UPDATE questions SET question_text = ?, correct_answer = ?, choices = ? WHERE id = ?");
+        $stmt->bind_param("sssi", $question_text, $correct_answer, $choices, $question_id);
+    } else {
+        // Update regular questions without choices JSON
+        $stmt = $db->conn->prepare("UPDATE questions SET question_text = ?, correct_answer = ? WHERE id = ?");
+        $stmt->bind_param("ssi", $question_text, $correct_answer, $question_id);
+    }
+    
+    if ($stmt->execute()) {
+        echo json_encode(['status' => 'success']);
+    } else {
+        http_response_code(500);
+        echo json_encode(['status' => 'error', 'message' => $db->conn->error]);
+    }
+} elseif ($requestType == "UpdateSingleQuestion") {
+    require_once(__DIR__ . '/../../class.php');
+    $db = new global_class();
+
+    $question_id = $_POST['question_id'];
+    $question_text = $_POST['question_text'];
+    $correct_answer = $_POST['correct_answer'];
+    $choices = $_POST['choices'] ?? null;
+    $difficulty = $_POST['difficulty'] ?? 'easy'; 
+
+    if (!empty($choices)) {
+        // Update MCQ with choices JSON and difficulty
+        $stmt = $db->conn->prepare("UPDATE questions SET question_text = ?, correct_answer = ?, choices = ?, difficulty = ? WHERE id = ?");
+        $stmt->bind_param("ssssi", $question_text, $correct_answer, $choices, $difficulty, $question_id);
+    } else {
+        // Update regular questions and difficulty
+        $stmt = $db->conn->prepare("UPDATE questions SET question_text = ?, correct_answer = ?, difficulty = ? WHERE id = ?");
+        $stmt->bind_param("sssi", $question_text, $correct_answer, $difficulty, $question_id);
+    }
+    
+    if ($stmt->execute()) {
+        echo json_encode(['status' => 'success']);
+    } else {
+        http_response_code(500);
+        echo json_encode(['status' => 'error', 'message' => $db->conn->error]);
+    }
 } elseif ($requestType == "GetUnifiedQuestions") {
     $assessment_id = $_POST['assessment_id'];
     

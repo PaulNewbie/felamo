@@ -89,7 +89,14 @@ while ($level = $levels_result->fetch_assoc()) {
     $level_id = $level['id'];
     $total_levels++;
 
-    $assess_stmt = $conn->prepare("SELECT id FROM assessments WHERE level_id = ? LIMIT 1");
+    // FIX 1: Use a JOIN to bridge assessments -> aralin -> level_id
+    $assess_stmt = $conn->prepare(
+        "SELECT assessments.id 
+         FROM assessments 
+         JOIN aralin ON assessments.aralin_id = aralin.id 
+         WHERE aralin.level_id = ? 
+         LIMIT 1"
+    );
     $assess_stmt->bind_param("i", $level_id);
     $assess_stmt->execute();
     $assess_result = $assess_stmt->get_result()->fetch_assoc();
@@ -102,7 +109,10 @@ while ($level = $levels_result->fetch_assoc()) {
     $assessment_id = $assess_result['id'];
 
     $check_stmt = $conn->prepare("SELECT id FROM assessment_takes WHERE assessment_id = ? AND lrn = ? LIMIT 1");
-    $check_stmt->bind_param("ii", $assessment_id, $lrn);
+    
+    // FIX 2: Change "ii" to "is" because $lrn is a string (e.g. '1234567891000')
+    $check_stmt->bind_param("is", $assessment_id, $lrn);
+    
     $check_stmt->execute();
     $check_stmt->store_result();
 
