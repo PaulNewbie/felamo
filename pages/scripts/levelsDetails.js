@@ -33,6 +33,9 @@ $(document).ready(function () {
                             let summary = aralin.summary || "";
                             if (summary.length > 100) summary = summary.substring(0, 100) + "...";
 
+                            // Safety Check: Make sure filename is not null
+                            let videoFile = aralin.attachment_filename ? aralin.attachment_filename : "";
+
                             html += `
                                 <tr>
                                     <td>
@@ -62,12 +65,12 @@ $(document).ready(function () {
                                                        data-title="${aralin.title}" 
                                                        data-summary="${aralin.summary}" 
                                                        data-details="${aralin.details}" 
-                                                       data-attachment="${aralin.attachment}">
+                                                       data-attachment="${videoFile}">
                                                        <i class="bi bi-pencil-square me-2"></i> Edit
                                                     </a>
                                                 </li>
                                                 <li>
-                                                    <a class="dropdown-item text-primary" href="../backend/storage/videos/${aralin.attachment}" target="_blank">
+                                                    <a class="dropdown-item text-primary" href="${videoFile ? '../backend/storage/videos/' + videoFile : '#'}" target="_blank" ${!videoFile ? 'style="pointer-events: none; opacity: 0.5;"' : ''}>
                                                         <i class="bi bi-play-circle me-2"></i> Preview Video
                                                     </a>
                                                 </li>
@@ -99,11 +102,9 @@ $(document).ready(function () {
     loadAralins();
 
     // --- CREATE ARALIN ---
-    // --- CREATE ARALIN ---
     $("#insert-aralin-form").submit(function (e) {
         e.preventDefault();
         
-        // Change button text to show it's loading
         let submitBtn = $(this).find('button[type="submit"]');
         let originalText = submitBtn.text();
         submitBtn.text("Saving...").prop("disabled", true);
@@ -124,7 +125,7 @@ $(document).ready(function () {
                         alert("Lesson successfully saved!");
                         $("#insertAralinModal").modal("hide");
                         $("#insert-aralin-form")[0].reset();
-                        loadAralins(); // This reloads the table immediately
+                        loadAralins();
                     } else {
                         alert("Failed: " + res.message);
                     }
@@ -135,8 +136,6 @@ $(document).ready(function () {
             },
             error: function (xhr, status, error) {
                 submitBtn.text(originalText).prop("disabled", false);
-                
-                // Try to parse the error message from the server if it's JSON
                 try {
                     let res = JSON.parse(xhr.responseText);
                     alert("Error: " + res.message);
@@ -162,8 +161,8 @@ $(document).ready(function () {
         $("#edit-aralin-summary").val(summary);
         $("#edit-aralin-details").val(details);
 
-        // Update Video Link
-        if (attachment) {
+        // EXTRA SAFETY CHECK: Prevent the string "undefined" or "null" from bypassing logic
+        if (attachment && attachment !== "undefined" && attachment !== "null" && attachment.trim() !== "") {
             $("#current-video-link").attr("href", "../backend/storage/videos/" + attachment);
             $("#current-video-link").show();
             $("#current-video-text").text("Current video: " + attachment);
@@ -202,11 +201,10 @@ $(document).ready(function () {
         });
     });
 
-    // --- DELETE HANDLER (Optional placeholder) ---
+    // --- DELETE HANDLER ---
     $(document).on("click", ".delete-aralin-btn", function(e) {
         e.preventDefault();
         if(confirm("Are you sure you want to delete this lesson?")) {
-            // Add delete logic here if needed (requires backend support)
             alert("Delete functionality coming soon.");
         }
     });
