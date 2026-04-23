@@ -134,7 +134,8 @@ while ($row = $result->fetch_assoc()) {
         $check_done_stmt = $conn->prepare("
             SELECT 1 FROM assessment_takes AS at 
             JOIN assessments AS a ON at.assessment_id = a.id
-            WHERE a.level_id = ? AND at.lrn = ?
+            JOIN aralin AS ar ON a.aralin_id = ar.id 
+            WHERE ar.level_id = ? AND at.lrn = ?
             LIMIT 1
         ");
 

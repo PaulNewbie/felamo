@@ -1,5 +1,4 @@
 <?php
-// --- ADDED SAFETY NET: This forces PHP to output exact errors instead of a 500 crash ---
 ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
@@ -21,10 +20,10 @@ if ($requestMethod !== "POST") {
 
 $input = json_decode(file_get_contents("php://input"), true);
 $session_id = trim($input['session_id'] ?? '');
-$level_id = trim($input['level_id'] ?? '');
+$aralin_id = trim($input['aralin_id'] ?? ''); // CHANGED to look for aralin_id
 
-if (empty($level_id) || empty($session_id)) {
-    echo json_encode(['status' => 'error', 'message' => 'Session ID and Level ID are required.']);
+if (empty($aralin_id) || empty($session_id)) {
+    echo json_encode(['status' => 'error', 'message' => 'Session ID and Aralin ID are required.']);
     exit;
 }
 
@@ -43,17 +42,10 @@ if ($session_result->num_rows === 0) {
 $user = $session_result->fetch_assoc();
 $user_id = $user['user_id'];
 
-// 2. Check if all Aralin (Lessons) are done
-$total_aralin_stmt = $conn->prepare("SELECT COUNT(*) as total FROM aralin WHERE level_id = ?");
-$total_aralin_stmt->bind_param("i", $level_id);
-$total_aralin_stmt->execute();
-$total_aralin = $total_aralin_stmt->get_result()->fetch_assoc()['total'];
-
-// --- THE BUG FIX: Changed da.student_id to da.user_id to match your database! ---
+// 2. Check if THIS SPECIFIC Aralin (Lesson) is done
 $done_aralin_stmt = $conn->prepare("
-    SELECT COUNT(*) as done FROM done_aralin AS da
-    JOIN aralin AS a ON da.aralin_id = a.id
-    WHERE a.level_id = ? AND da.user_id = ? 
+    SELECT COUNT(*) as done FROM done_aralin 
+    WHERE aralin_id = ? AND user_id = ? 
 ");
 
 if (!$done_aralin_stmt) {
@@ -61,23 +53,23 @@ if (!$done_aralin_stmt) {
     exit;
 }
 
-$done_aralin_stmt->bind_param("ii", $level_id, $user_id);
+$done_aralin_stmt->bind_param("ii", $aralin_id, $user_id);
 $done_aralin_stmt->execute();
 $done_aralin = $done_aralin_stmt->get_result()->fetch_assoc()['done'];
 
-if ($done_aralin < $total_aralin) {
-    echo json_encode(['status' => 'error', 'message' => 'Please complete all lessons before taking this assessment.']);
+if ($done_aralin == 0) {
+    echo json_encode(['status' => 'error', 'message' => 'Please watch the lesson video before taking this assessment.']);
     exit;
 }
 
-// 3. Get Assessment Details
-$stmt = $conn->prepare("SELECT * FROM assessments WHERE level_id = ? LIMIT 1");
-$stmt->bind_param("i", $level_id);
+// 3. Get Assessment Details linked to the Aralin
+$stmt = $conn->prepare("SELECT * FROM assessments WHERE aralin_id = ? LIMIT 1"); // CHANGED from level_id
+$stmt->bind_param("i", $aralin_id);
 $stmt->execute();
 $assessment = $stmt->get_result()->fetch_assoc();
 
 if (!$assessment) {
-    echo json_encode(['status' => 'error', 'message' => 'Assessment not found for this level.']);
+    echo json_encode(['status' => 'error', 'message' => 'Assessment not found for this lesson.']);
     exit;
 }
 $assessment_id = $assessment['id'];

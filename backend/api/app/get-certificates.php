@@ -69,7 +69,8 @@ $level_stmt = $conn->prepare("
     SELECT DISTINCT l.level 
     FROM assessment_takes AS at
     JOIN assessments AS a ON at.assessment_id = a.id
-    JOIN levels AS l ON a.level_id = l.id
+    JOIN aralin AS ar ON a.aralin_id = ar.id
+    JOIN levels AS l ON ar.level_id = l.id
     WHERE at.lrn = ?
 ");
 $level_stmt->bind_param("s", $student_lrn);

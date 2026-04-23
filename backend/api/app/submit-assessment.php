@@ -98,36 +98,62 @@ foreach ($all_answers as $item) {
     }
 }
 
-// 4. Record the Attempt (Using correct DB columns: 'points' and 'total')
-$check_stmt = $conn->prepare("SELECT id FROM assessment_takes WHERE assessment_id = ? AND lrn = ?");
-$check_stmt->bind_param("is", $assessment_id, $lrn);
-$check_stmt->execute();
-$check_res = $check_stmt->get_result();
+// 4. Calculate Percentage & Enforce the 80% Rule
+$percentage = ($total_items > 0) ? ($score / $total_items) * 100 : 0;
+$passing_grade = 80;
 
-if ($check_res->num_rows > 0) {
-    // Retaking: Update points and total (updated_at handles the timestamp automatically)
-    $take_id = $check_res->fetch_assoc()['id'];
-    $update_stmt = $conn->prepare("UPDATE assessment_takes SET points = ?, total = ? WHERE id = ?");
-    $update_stmt->bind_param("iii", $score, $total_items, $take_id);
-    $update_stmt->execute();
+if ($percentage >= $passing_grade) {
+    // --- PASSED ---
+    
+    // Check if they already passed this before (prevent duplicate reward exploits)
+    $check_pass_stmt = $conn->prepare("SELECT id FROM assessment_takes WHERE assessment_id = ? AND lrn = ?");
+    $check_pass_stmt->bind_param("is", $assessment_id, $lrn);
+    $check_pass_stmt->execute();
+    $already_passed = $check_pass_stmt->get_result()->num_rows > 0;
+
+    if (!$already_passed) {
+        // First time passing: Record it
+        $insert_stmt = $conn->prepare("INSERT INTO assessment_takes (assessment_id, lrn, points, total) VALUES (?, ?, ?, ?)");
+        $insert_stmt->bind_param("isii", $assessment_id, $lrn, $score, $total_items);
+        $insert_stmt->execute();
+
+        // Award Bonus Points
+        $bonus_points = 35; // Taho reward
+        $total_points_earned = $score + $bonus_points;
+
+        $points_stmt = $conn->prepare("UPDATE users SET points = points + ? WHERE id = ?");
+        $points_stmt->bind_param("ii", $total_points_earned, $user_id);
+        $points_stmt->execute();
+    } else {
+        // If they are just retaking an already passed quiz for fun, no new bonus points
+        $bonus_points = 0; 
+    }
+
+    echo json_encode([
+        'status' => 'success',
+        'raw_points' => $score,
+        'bonus_points' => $bonus_points
+    ]);
+
 } else {
-    // First time taking: Insert points and total
-    $insert_stmt = $conn->prepare("INSERT INTO assessment_takes (assessment_id, lrn, points, total) VALUES (?, ?, ?, ?)");
-    $insert_stmt->bind_param("isii", $assessment_id, $lrn, $score, $total_items);
-    $insert_stmt->execute();
+    // --- FAILED (< 80%) ---
+    
+    // Find the aralin_id for this assessment
+    $ar_stmt = $conn->prepare("SELECT aralin_id FROM assessments WHERE id = ? LIMIT 1");
+    $ar_stmt->bind_param("i", $assessment_id);
+    $ar_stmt->execute();
+    $aralin_id = $ar_stmt->get_result()->fetch_assoc()['aralin_id'];
+
+    // Update done_aralin to force a re-watch before they can fetch questions again
+    // (Requires adding a 'needs_rewatch' boolean column to done_aralin, defaulting to 0)
+    $rewatch_stmt = $conn->prepare("UPDATE done_aralin SET needs_rewatch = 1 WHERE user_id = ? AND aralin_id = ?");
+    $rewatch_stmt->bind_param("ii", $user_id, $aralin_id);
+    $rewatch_stmt->execute();
+
+    echo json_encode([
+        'status' => 'failed',
+        'raw_points' => $score,
+        'message' => 'Hindi nakamit ang 80%.'
+    ]);
 }
-
-// 5. Award Points to User
-$bonus_points = 35;
-$total_points_earned = $score + $bonus_points;
-
-$points_stmt = $conn->prepare("UPDATE users SET points = points + ? WHERE id = ?");
-$points_stmt->bind_param("ii", $total_points_earned, $user_id);
-$points_stmt->execute();
-
-echo json_encode([
-    'status' => 'success',
-    'raw_points' => $score,
-    'bonus_points' => $bonus_points
-]);
 ?>
