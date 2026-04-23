@@ -68,38 +68,42 @@ if ($aralin_stmt->num_rows === 0) {
 }
 $aralin_stmt->close();
 
-$check_stmt = $conn->prepare("SELECT id FROM done_aralin WHERE user_id = ? AND aralin_id = ?");
-$check_stmt->bind_param("ii", $user_id, $aralin_id);
-$check_stmt->execute();
-$check_stmt->store_result();
+$chk = $conn->prepare(
+    "SELECT id, video_reward_claimed FROM done_aralin WHERE user_id = ? AND aralin_id = ?"
+);
+$chk->bind_param("ii", $user_id, $aralin_id);
+$chk->execute();
+$existing = $chk->get_result()->fetch_assoc();
 
-if ($check_stmt->num_rows > 0) {
-    echo json_encode([
-        'status' => 'info',
-        'message' => 'Aralin already marked as done.'
-    ]);
-    exit;
-}
-$check_stmt->close();
+$points_awarded = 0;
 
-$insert_stmt = $conn->prepare("INSERT INTO done_aralin (user_id, aralin_id, completed_at) VALUES (?, ?, NOW())");
-$insert_stmt->bind_param("ii", $user_id, $aralin_id);
+if (!$existing) {
+    // First time watching — insert and award halo-halo points (50 pts)
+    $ins = $conn->prepare(
+        "INSERT INTO done_aralin (user_id, aralin_id, completed_at, needs_rewatch, video_reward_claimed)
+         VALUES (?, ?, NOW(), 0, 1)"
+    );
+    $ins->bind_param("ii", $user_id, $aralin_id);
+    $ins->execute();
 
-$update_points_stmt = $conn->prepare("UPDATE users SET points = points + 100 WHERE id = ?");
-$update_points_stmt->bind_param("i", $user_id);
-$update_points_stmt->execute();
-$update_points_stmt->close();
+    $points_awarded = 50;
+    $upd = $conn->prepare("UPDATE users SET points = points + 50 WHERE id = ?");
+    $upd->bind_param("i", $user_id);
+    $upd->execute();
 
-if ($insert_stmt->execute()) {
-    echo json_encode([
-        'status' => 'success',
-        'message' => 'Aralin marked as done.',
-        'points_received' => 100,
-    ]);
 } else {
-    http_response_code(500);
-    echo json_encode([
-        'status' => 'error',
-        'message' => 'Failed to mark aralin as done.'
-    ]);
+    // Re-watch after a failed attempt — clear the rewatch flag, NO bonus
+    $upd = $conn->prepare(
+        "UPDATE done_aralin SET needs_rewatch = 0, completed_at = NOW()
+         WHERE user_id = ? AND aralin_id = ?"
+    );
+    $upd->bind_param("ii", $user_id, $aralin_id);
+    $upd->execute();
 }
+
+echo json_encode([
+    'status'          => 'success',
+    'message'         => $points_awarded > 0 ? 'Aralin marked done.' : 'Aralin re-watched — quiz unlocked.',
+    'points_received' => $points_awarded,
+    'first_watch'     => $points_awarded > 0,
+]);

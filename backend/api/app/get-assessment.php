@@ -43,22 +43,41 @@ $user = $session_result->fetch_assoc();
 $user_id = $user['user_id'];
 
 // 2. Check if THIS SPECIFIC Aralin (Lesson) is done
-$done_aralin_stmt = $conn->prepare("
-    SELECT COUNT(*) as done FROM done_aralin 
-    WHERE aralin_id = ? AND user_id = ? 
-");
+// Check if the student has watched this aralin
+$done_q = $conn->prepare(
+    "SELECT COUNT(*) as done, COALESCE(MAX(needs_rewatch), 0) AS needs_rewatch
+     FROM done_aralin WHERE aralin_id = ? AND user_id = ?"
+);
+$done_q->bind_param("ii", $aralin_id, $user_id);
+$done_q->execute();
+$done_row = $done_q->get_result()->fetch_assoc();
 
-if (!$done_aralin_stmt) {
-    echo json_encode(['status' => 500, 'message' => 'SQL Error (done_aralin): ' . $conn->error]);
+if ((int)$done_row['done'] === 0) {
+    echo json_encode([
+        'status'  => 'error',
+        'message' => 'Please watch the lesson video before taking this assessment.',
+    ]);
     exit;
 }
 
-$done_aralin_stmt->bind_param("ii", $aralin_id, $user_id);
-$done_aralin_stmt->execute();
-$done_aralin = $done_aralin_stmt->get_result()->fetch_assoc()['done'];
+if ((int)$done_row['needs_rewatch'] === 1) {
+    echo json_encode([
+        'status'  => 'error',
+        'message' => 'You must re-watch the video before retaking this assessment.',
+    ]);
+    exit;
+}
 
-if ($done_aralin == 0) {
-    echo json_encode(['status' => 'error', 'message' => 'Please watch the lesson video before taking this assessment.']);
+// Also guard against taking an already-passed quiz a second time
+$already = $conn->prepare("SELECT id FROM assessment_takes WHERE assessment_id = ? AND lrn = ?");
+$already->bind_param("is", $assessment_id, $lrn);
+$already->execute();
+$already->store_result();
+if ($already->num_rows > 0) {
+    echo json_encode([
+        'status'  => 'already_taken',
+        'message' => 'Nasagutan mo na ang pagsusulit na ito.',
+    ]);
     exit;
 }
 
