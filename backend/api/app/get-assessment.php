@@ -1,4 +1,7 @@
 <?php
+ini_set('display_errors', 1);
+error_reporting(E_ALL);
+
 header('Access-Control-Allow-Origin: *');
 header('Content-Type: application/json');
 header('Access-Control-Allow-Methods: POST');
@@ -8,87 +11,70 @@ include(__DIR__ . '/../../db/db.php');
 
 if ($_SERVER['REQUEST_METHOD'] !== "POST") {
     http_response_code(405);
-    echo json_encode(['status' => 405, 'message' => "Method not allowed."]);
+    echo json_encode(['status' => 405, 'message' => 'Method not allowed.']);
     exit;
 }
 
-$input     = json_decode(file_get_contents("php://input"), true);
-$session_id = trim($input['session_id'] ?? '');
-$aralin_id  = (int)($input['aralin_id'] ?? 0);
+$input         = json_decode(file_get_contents("php://input"), true);
+$session_id    = trim($input['session_id']    ?? '');
+$assessment_id = (int)($input['assessment_id'] ?? 0);
 
-if (empty($aralin_id) || empty($session_id)) {
-    echo json_encode(['status' => 'error', 'message' => 'Session ID and Aralin ID are required.']);
+if (empty($session_id) || empty($assessment_id)) {
+    echo json_encode(['status' => 'error', 'message' => 'Session ID and Assessment ID are required.']);
     exit;
 }
 
 $conn = (new db_connect())->connect();
 
 // ── 1. Resolve session → user_id ─────────────────────────────────────────────
-$session_stmt = $conn->prepare("SELECT user_id FROM sessions WHERE id = ? AND expiration > NOW()");
-$session_stmt->bind_param("s", $session_id);
-$session_stmt->execute();
-$session_result = $session_stmt->get_result();
-if ($session_result->num_rows === 0) {
+$sess = $conn->prepare("SELECT user_id FROM sessions WHERE id = ? AND expiration > NOW()");
+$sess->bind_param("s", $session_id);
+$sess->execute();
+$sess_row = $sess->get_result()->fetch_assoc();
+$sess->close();
+
+if (!$sess_row) {
     echo json_encode(['status' => 401, 'message' => 'Invalid or expired session.']);
     exit;
 }
-$user_id = $session_result->fetch_assoc()['user_id'];
+$user_id = (int)$sess_row['user_id'];
 
-// ── 2. Resolve user_id → lrn ─────────────────────────────────────────────────
-$lrn_stmt = $conn->prepare("SELECT lrn FROM users WHERE id = ?");
-$lrn_stmt->bind_param("i", $user_id);
-$lrn_stmt->execute();
-$lrn_row = $lrn_stmt->get_result()->fetch_assoc();
-if (!$lrn_row || empty($lrn_row['lrn'])) {
-    echo json_encode(['status' => 'error', 'message' => 'User LRN not found.']);
+// ── 2. Resolve user_id → lrn & current points ────────────────────────────────
+$uq = $conn->prepare("SELECT lrn, points FROM users WHERE id = ?");
+$uq->bind_param("i", $user_id);
+$uq->execute();
+$user = $uq->get_result()->fetch_assoc();
+$uq->close();
+
+if (!$user) {
+    echo json_encode(['status' => 'error', 'message' => 'User not found.']);
     exit;
 }
-$lrn = $lrn_row['lrn'];
+$lrn = $user['lrn'];
 
-// ── 3. Check if aralin video was watched ──────────────────────────────────────
-$done_q = $conn->prepare(
-    "SELECT COUNT(*) as done, COALESCE(MAX(needs_rewatch), 0) AS needs_rewatch
-     FROM done_aralin WHERE aralin_id = ? AND user_id = ?"
+// ── 3. Get aralin_id from this assessment (for rewatch flag scoping) ──────────
+$aq = $conn->prepare("SELECT aralin_id FROM assessments WHERE id = ? LIMIT 1");
+$aq->bind_param("i", $assessment_id);
+$aq->execute();
+$aralin_row = $aq->get_result()->fetch_assoc();
+$aq->close();
+$aralin_id = (int)($aralin_row['aralin_id'] ?? 0);
+
+// ── 4. Block retakes if student already PASSED THIS specific assessment ────────
+// FIX: Scope check to the exact assessment_id so passing Aralin 1 never
+// blocks Aralin 2, 3, etc.
+$already_done = $conn->prepare(
+    "SELECT id FROM assessment_takes
+     WHERE assessment_id = ? AND lrn = ? AND is_completed = 1
+     LIMIT 1"
 );
-$done_q->bind_param("ii", $aralin_id, $user_id);
-$done_q->execute();
-$done_row = $done_q->get_result()->fetch_assoc();
+$already_done->bind_param("is", $assessment_id, $lrn);
+$already_done->execute();
+$already_done->store_result();
+$is_already_done = ($already_done->num_rows > 0);
+$already_done->close();
 
-if ((int)$done_row['done'] === 0) {
-    echo json_encode([
-        'status'  => 'error',
-        'message' => 'Please watch the lesson video before taking this assessment.',
-    ]);
-    exit;
-}
-if ((int)$done_row['needs_rewatch'] === 1) {
-    echo json_encode([
-        'status'  => 'error',
-        'message' => 'You must re-watch the video before retaking this assessment.',
-    ]);
-    exit;
-}
-
-// ── 4. Get assessment linked to aralin ────────────────────────────────────────
-$stmt = $conn->prepare("SELECT * FROM assessments WHERE aralin_id = ? LIMIT 1");
-$stmt->bind_param("i", $aralin_id);
-$stmt->execute();
-$assessment = $stmt->get_result()->fetch_assoc();
-if (!$assessment) {
-    echo json_encode(['status' => 'error', 'message' => 'Assessment not found for this lesson.']);
-    exit;
-}
-$assessment_id = $assessment['id'];
-
-// ── 5. NOW check if already passed — variables exist here ─────────────────────
-$already = $conn->prepare(
-    "SELECT id FROM assessment_takes WHERE assessment_id = ? AND lrn = ? AND is_completed = 1"
-);
-$already->bind_param("is", $assessment_id, $lrn);
-$already->execute();
-$already->store_result();
-if ($already->num_rows > 0) {
-    // Return 'already_taken' so Flutter shows history instead of quiz
+if ($is_already_done) {
     echo json_encode([
         'status'  => 'already_taken',
         'message' => 'Nasagutan mo na ang pagsusulit na ito.',
@@ -96,91 +82,186 @@ if ($already->num_rows > 0) {
     exit;
 }
 
-// ── 6. Build quiz (unchanged from your original logic) ────────────────────────
-$types = ['multiple_choice', 'true_false', 'identification', 'jumbled_word'];
-$pool_by_type = ['multiple_choice' => [], 'true_false' => [], 'identification' => [], 'jumbled_word' => []];
-
-$concept_stmt = $conn->prepare(
-    "SELECT type, concept_group_id FROM questions WHERE assessment_id = ? GROUP BY type, concept_group_id"
+// ── 5. Collect all submitted answers ─────────────────────────────────────────
+$all_answers = array_merge(
+    $input['multiple_choices'] ?? [],
+    $input['true_or_false']    ?? [],
+    $input['identification']   ?? [],
+    $input['jumbled_words']    ?? []
 );
-$concept_stmt->bind_param("i", $assessment_id);
-$concept_stmt->execute();
-$concept_result = $concept_stmt->get_result();
-while ($row = $concept_result->fetch_assoc()) {
-    $pool_by_type[$row['type']][] = $row['concept_group_id'];
+
+// FIX: total_items comes from the number of questions actually submitted,
+// NOT from a hardcoded value. This makes Aralin 1 (13 items) and
+// Aralin 2 (15 items) each use their own correct denominator.
+$total_items = count($all_answers);
+
+if ($total_items === 0) {
+    echo json_encode(['status' => 'error', 'message' => 'No answers submitted.']);
+    exit;
 }
 
-$selected_concepts = [];
-foreach ($types as $type) {
-    shuffle($pool_by_type[$type]);
-    for ($i = 0; $i < 2; $i++) {
-        if (!empty($pool_by_type[$type])) {
-            $selected_concepts[] = array_pop($pool_by_type[$type]);
+// ── 6. Grade all submitted answers ───────────────────────────────────────────
+$score = 0;
+foreach ($all_answers as $item) {
+    $q_id        = (int)($item['question_id'] ?? 0);
+    $user_answer = trim((string)($item['answer'] ?? ''));
+
+    // FIX: Also verify question belongs to THIS assessment to prevent
+    // cross-aralin answer injection attacks
+    $qstmt = $conn->prepare(
+        "SELECT type, correct_answer, choices
+         FROM questions
+         WHERE id = ? AND assessment_id = ?"
+    );
+    $qstmt->bind_param("ii", $q_id, $assessment_id);
+    $qstmt->execute();
+    $q = $qstmt->get_result()->fetch_assoc();
+    $qstmt->close();
+
+    if (!$q) continue; // Skip questions that don't belong to this assessment
+
+    $correct = trim($q['correct_answer']);
+
+    if ($q['type'] === 'multiple_choice') {
+        $choices       = json_decode($q['choices'], true) ?? [];
+        $selected_text = $choices[strtoupper($user_answer)] ?? '';
+        if (strtolower($selected_text) === strtolower($correct)) {
+            $score++;
+        }
+    } elseif ($q['type'] === 'true_false') {
+        $db_is_true = in_array(strtolower($correct), ['true', '1', 'tama']) ? 1 : 0;
+        if ((int)$user_answer === $db_is_true) {
+            $score++;
+        }
+    } else {
+        // identification & jumbled_word — case-insensitive exact match
+        if (strtolower($user_answer) === strtolower($correct)) {
+            $score++;
         }
     }
 }
 
-$remaining_pool = array_merge(
-    $pool_by_type['multiple_choice'],
-    $pool_by_type['true_false'],
-    $pool_by_type['identification'],
-    $pool_by_type['jumbled_word']
+// ── 7. Count attempts for THIS assessment only (from log table) ───────────────
+$attempt_q = $conn->prepare(
+    "SELECT COUNT(*) AS cnt
+     FROM assessment_takes_log
+     WHERE assessment_id = ? AND lrn = ?"
 );
-shuffle($remaining_pool);
-$slots_left = 15 - count($selected_concepts);
-for ($i = 0; $i < $slots_left; $i++) {
-    if (!empty($remaining_pool)) {
-        $selected_concepts[] = array_pop($remaining_pool);
-    }
-}
+$attempt_q->bind_param("is", $assessment_id, $lrn);
+$attempt_q->execute();
+$attempt_cnt = (int)($attempt_q->get_result()->fetch_assoc()['cnt'] ?? 0) + 1;
+$attempt_q->close();
 
-$flutter_data = [
-    'assessment'      => $assessment,
-    'multiple_choices' => [],
-    'true_or_false'   => [],
-    'identification'  => [],
-    'jumbled_words'   => [],
-];
+// Always log this attempt regardless of pass/fail
+$log_stmt = $conn->prepare(
+    "INSERT INTO assessment_takes_log (assessment_id, lrn, score, total, attempted_at)
+     VALUES (?, ?, ?, ?, NOW())"
+);
+$log_stmt->bind_param("isii", $assessment_id, $lrn, $score, $total_items);
+$log_stmt->execute();
+$log_stmt->close();
 
-foreach ($selected_concepts as $concept_id) {
-    $q_stmt = $conn->prepare(
-        "SELECT * FROM questions WHERE concept_group_id = ? ORDER BY RAND() LIMIT 1"
+// ── 8. Pass / Fail decision ───────────────────────────────────────────────────
+// 80% threshold — computed against the actual item count for this aralin
+$pass_threshold = 0.80;
+$passed         = ($total_items > 0) && (($score / $total_items) >= $pass_threshold);
+
+if ($passed) {
+    // Check if this is the student's first-ever pass for THIS assessment
+    $prev = $conn->prepare(
+        "SELECT id FROM assessment_takes WHERE assessment_id = ? AND lrn = ? LIMIT 1"
     );
-    $q_stmt->bind_param("i", $concept_id);
-    $q_stmt->execute();
-    $q = $q_stmt->get_result()->fetch_assoc();
-    if (!$q) continue;
+    $prev->bind_param("is", $assessment_id, $lrn);
+    $prev->execute();
+    $prev->store_result();
+    $first_pass = ($prev->num_rows === 0);
+    $prev->close();
 
-    if ($q['type'] === 'multiple_choice') {
-        $choices = json_decode($q['choices'], true);
-        $flutter_data['multiple_choices'][] = [
-            'id'             => $q['id'],
-            'question'       => $q['question_text'],
-            'choice_a'       => $choices['A'] ?? '',
-            'choice_b'       => $choices['B'] ?? '',
-            'choice_c'       => $choices['C'] ?? '',
-            'choice_d'       => $choices['D'] ?? '',
-            'correct_answer' => $q['correct_answer'],
-        ];
-    } elseif ($q['type'] === 'true_false') {
-        $flutter_data['true_or_false'][] = [
-            'id'       => $q['id'],
-            'question' => $q['question_text'],
-            'answer'   => (strtolower($q['correct_answer']) === 'true') ? 1 : 0,
-        ];
-    } elseif ($q['type'] === 'identification') {
-        $flutter_data['identification'][] = [
-            'id'       => $q['id'],
-            'question' => $q['question_text'],
-            'answer'   => $q['correct_answer'],
-        ];
-    } elseif ($q['type'] === 'jumbled_word') {
-        $flutter_data['jumbled_words'][] = [
-            'id'       => $q['id'],
-            'question' => $q['question_text'],
-            'answer'   => $q['correct_answer'],
-        ];
+    if ($first_pass) {
+        // ── Record the official pass ──────────────────────────────────────
+        $ins = $conn->prepare(
+            "INSERT INTO assessment_takes
+                 (assessment_id, lrn, points, total, is_completed, created_at)
+             VALUES (?, ?, ?, ?, 1, NOW())"
+        );
+        $ins->bind_param("isii", $assessment_id, $lrn, $score, $total_items);
+        $ins->execute();
+        $ins->close();
+
+        // ── Save every answer for the history view of THIS aralin ─────────
+        $ans_stmt = $conn->prepare(
+            "INSERT INTO assessment_answer_log
+                 (assessment_id, lrn, question_id, student_answer, attempted_at)
+             VALUES (?, ?, ?, ?, NOW())"
+        );
+        foreach ($all_answers as $item) {
+            $q_id        = (int)($item['question_id'] ?? 0);
+            $user_answer = trim((string)($item['answer'] ?? ''));
+            $ans_stmt->bind_param("isis", $assessment_id, $lrn, $q_id, $user_answer);
+            $ans_stmt->execute();
+        }
+        $ans_stmt->close();
+
+        // ── Award bonus points ────────────────────────────────────────────
+        $bonus = 35;
+        $upd = $conn->prepare("UPDATE users SET points = points + ? WHERE id = ?");
+        $upd->bind_param("ii", $bonus, $user_id);
+        $upd->execute();
+        $upd->close();
+
+    } else {
+        // Already has a pass record (re-passed after rewatch) — no bonus
+        $bonus = 0;
     }
-}
 
-echo json_encode(['status' => 'success', 'data' => $flutter_data]);
+    // ── Clear rewatch flag for THIS aralin only ───────────────────────────
+    // FIX: Scope the UPDATE to the exact aralin_id so clearing Aralin 1's
+    // rewatch flag never accidentally affects Aralin 2, 3, etc.
+    if ($aralin_id > 0) {
+        $clr = $conn->prepare(
+            "UPDATE done_aralin
+             SET needs_rewatch = 0
+             WHERE user_id = ? AND aralin_id = ?"
+        );
+        $clr->bind_param("ii", $user_id, $aralin_id);
+        $clr->execute();
+        $clr->close();
+    }
+
+    echo json_encode([
+        'status'       => 'success',
+        'raw_points'   => $score,
+        'total_items'  => $total_items,
+        'bonus_points' => $bonus,
+        'first_pass'   => $first_pass,
+        'attempts'     => $attempt_cnt,
+        'is_completed' => true,
+    ]);
+
+} else {
+    // ── FAILED — require rewatch for THIS aralin before retrying ─────────
+    // FIX: Scope to aralin_id so a failed attempt on Aralin 2 doesn't
+    // force a rewatch of Aralin 1.
+    if ($aralin_id > 0) {
+        $rw = $conn->prepare(
+            "UPDATE done_aralin
+             SET needs_rewatch = 1
+             WHERE user_id = ? AND aralin_id = ?"
+        );
+        $rw->bind_param("ii", $user_id, $aralin_id);
+        $rw->execute();
+        $rw->close();
+    }
+
+    $percentage = ($total_items > 0) ? round(($score / $total_items) * 100) : 0;
+
+    echo json_encode([
+        'status'       => 'failed',
+        'raw_points'   => $score,
+        'total_items'  => $total_items,
+        'percentage'   => $percentage,
+        'attempts'     => $attempt_cnt,
+        'is_completed' => false,
+        'message'      => 'Hindi nakamit ang 80%. Pakitingnan muli ang aralin bago muling sumubok.',
+    ]);
+}

@@ -26,47 +26,73 @@ if (empty($session_id) || empty($assessment_id)) {
 
 $conn = (new db_connect())->connect();
 
-// ── 1. Resolve user ──────────────────────────────────────────────────────────
+// ── 1. Resolve session → user_id ─────────────────────────────────────────────
 $sess = $conn->prepare("SELECT user_id FROM sessions WHERE id = ? AND expiration > NOW()");
 $sess->bind_param("s", $session_id);
 $sess->execute();
 $sess_row = $sess->get_result()->fetch_assoc();
+$sess->close();
+
 if (!$sess_row) {
     echo json_encode(['status' => 401, 'message' => 'Invalid or expired session.']);
     exit;
 }
-$user_id = $sess_row['user_id'];
+$user_id = (int)$sess_row['user_id'];
 
+// ── 2. Resolve user_id → lrn & current points ────────────────────────────────
 $uq = $conn->prepare("SELECT lrn, points FROM users WHERE id = ?");
 $uq->bind_param("i", $user_id);
 $uq->execute();
 $user = $uq->get_result()->fetch_assoc();
+$uq->close();
+
 if (!$user) {
     echo json_encode(['status' => 'error', 'message' => 'User not found.']);
     exit;
 }
 $lrn = $user['lrn'];
 
-// ── 2. Block retakes if already passed ───────────────────────────────────────
+// ── 3. Get aralin_id from this assessment (for rewatch flag scoping) ──────────
+$aq = $conn->prepare("SELECT aralin_id FROM assessments WHERE id = ? LIMIT 1");
+$aq->bind_param("i", $assessment_id);
+$aq->execute();
+$aralin_row = $aq->get_result()->fetch_assoc();
+$aq->close();
+$aralin_id = (int)($aralin_row['aralin_id'] ?? 0);
+
+// ── 4. Block retakes if student already PASSED THIS specific assessment ────────
+// FIX: Scope check to the exact assessment_id so passing Aralin 1 never
+// blocks Aralin 2, 3, etc.
 $already_done = $conn->prepare(
-    "SELECT id FROM assessment_takes WHERE assessment_id = ? AND lrn = ? AND is_completed = 1"
+    "SELECT id FROM assessment_takes
+     WHERE assessment_id = ? AND lrn = ? AND is_completed = 1
+     LIMIT 1"
 );
 $already_done->bind_param("is", $assessment_id, $lrn);
 $already_done->execute();
 $already_done->store_result();
-if ($already_done->num_rows > 0) {
-    echo json_encode(['status' => 'already_taken', 'message' => 'Nasagutan mo na ang pagsusulit na ito.']);
-    exit;
-}
+$is_already_done = ($already_done->num_rows > 0);
 $already_done->close();
 
-// ── 3. Collect answers ───────────────────────────────────────────────────────
+if ($is_already_done) {
+    echo json_encode([
+        'status'  => 'already_taken',
+        'message' => 'Nasagutan mo na ang pagsusulit na ito.',
+    ]);
+    exit;
+}
+
+// ── 5. Collect all submitted answers ─────────────────────────────────────────
 $all_answers = array_merge(
     $input['multiple_choices'] ?? [],
     $input['true_or_false']    ?? [],
     $input['identification']   ?? [],
     $input['jumbled_words']    ?? []
 );
+
+// FIX: total_items comes from the number of questions actually submitted,
+// NOT from a hardcoded value. This makes Aralin 1 (13 items) and
+// Aralin 2 (15 items) each use their own correct denominator.
 $total_items = count($all_answers);
 
 if ($total_items === 0) {
@@ -74,44 +100,52 @@ if ($total_items === 0) {
     exit;
 }
 
-// ── 4. Grade ──────────────────────────────────────────────────────────────────
+// ── 6. Grade all submitted answers ───────────────────────────────────────────
 $score = 0;
 foreach ($all_answers as $item) {
     $q_id        = (int)($item['question_id'] ?? 0);
     $user_answer = trim((string)($item['answer'] ?? ''));
 
-    $qstmt = $conn->prepare("SELECT type, correct_answer, choices FROM questions WHERE id = ?");
-    $qstmt->bind_param("i", $q_id);
+    // FIX: Also verify question belongs to THIS assessment to prevent
+    // cross-aralin answer injection attacks
+    $qstmt = $conn->prepare(
+        "SELECT type, correct_answer, choices
+         FROM questions
+         WHERE id = ? AND assessment_id = ?"
+    );
+    $qstmt->bind_param("ii", $q_id, $assessment_id);
     $qstmt->execute();
     $q = $qstmt->get_result()->fetch_assoc();
     $qstmt->close();
-    if (!$q) continue;
+
+    if (!$q) continue; // Skip questions that don't belong to this assessment
 
     $correct = trim($q['correct_answer']);
 
     if ($q['type'] === 'multiple_choice') {
         $choices       = json_decode($q['choices'], true) ?? [];
         $selected_text = $choices[strtoupper($user_answer)] ?? '';
-        if (strtolower($selected_text) === strtolower($correct)) $score++;
+        if (strtolower($selected_text) === strtolower($correct)) {
+            $score++;
+        }
     } elseif ($q['type'] === 'true_false') {
         $db_is_true = in_array(strtolower($correct), ['true', '1', 'tama']) ? 1 : 0;
-        if ((int)$user_answer === $db_is_true) $score++;
+        if ((int)$user_answer === $db_is_true) {
+            $score++;
+        }
     } else {
-        if (strtolower($user_answer) === strtolower($correct)) $score++;
+        // identification & jumbled_word — case-insensitive exact match
+        if (strtolower($user_answer) === strtolower($correct)) {
+            $score++;
+        }
     }
 }
 
-// ── 5. Get aralin_id from assessment ─────────────────────────────────────────
-$aq = $conn->prepare("SELECT aralin_id FROM assessments WHERE id = ? LIMIT 1");
-$aq->bind_param("i", $assessment_id);
-$aq->execute();
-$aralin_row = $aq->get_result()->fetch_assoc();
-$aq->close();
-$aralin_id = $aralin_row['aralin_id'] ?? null;
-
-// ── 6. Count attempts (from log table) ───────────────────────────────────────
+// ── 7. Count attempts for THIS assessment only (from log table) ───────────────
 $attempt_q = $conn->prepare(
-    "SELECT COUNT(*) AS cnt FROM assessment_takes_log WHERE assessment_id = ? AND lrn = ?"
+    "SELECT COUNT(*) AS cnt
+     FROM assessment_takes_log
+     WHERE assessment_id = ? AND lrn = ?"
 );
 $attempt_q->bind_param("is", $assessment_id, $lrn);
 $attempt_q->execute();
@@ -127,14 +161,15 @@ $log_stmt->bind_param("isii", $assessment_id, $lrn, $score, $total_items);
 $log_stmt->execute();
 $log_stmt->close();
 
-// ── 7. Pass / Fail ────────────────────────────────────────────────────────────
+// ── 8. Pass / Fail decision ───────────────────────────────────────────────────
+// 80% threshold — computed against the actual item count for this aralin
 $pass_threshold = 0.80;
-$passed = ($total_items > 0) && ($score / $total_items) >= $pass_threshold;
+$passed         = ($total_items > 0) && (($score / $total_items) >= $pass_threshold);
 
 if ($passed) {
-    // Check first pass (no completed record yet)
+    // Check if this is the student's first-ever pass for THIS assessment
     $prev = $conn->prepare(
-        "SELECT id FROM assessment_takes WHERE assessment_id = ? AND lrn = ?"
+        "SELECT id FROM assessment_takes WHERE assessment_id = ? AND lrn = ? LIMIT 1"
     );
     $prev->bind_param("is", $assessment_id, $lrn);
     $prev->execute();
@@ -143,18 +178,20 @@ if ($passed) {
     $prev->close();
 
     if ($first_pass) {
-        // Insert official pass record
+        // ── Record the official pass ──────────────────────────────────────
         $ins = $conn->prepare(
-            "INSERT INTO assessment_takes (assessment_id, lrn, points, total, is_completed, created_at)
+            "INSERT INTO assessment_takes
+                 (assessment_id, lrn, points, total, is_completed, created_at)
              VALUES (?, ?, ?, ?, 1, NOW())"
         );
         $ins->bind_param("isii", $assessment_id, $lrn, $score, $total_items);
         $ins->execute();
         $ins->close();
 
-        // Save every answer for history view
+        // ── Save every answer for the history view of THIS aralin ─────────
         $ans_stmt = $conn->prepare(
-            "INSERT INTO assessment_answer_log (assessment_id, lrn, question_id, student_answer, attempted_at)
+            "INSERT INTO assessment_answer_log
+                 (assessment_id, lrn, question_id, student_answer, attempted_at)
              VALUES (?, ?, ?, ?, NOW())"
         );
         foreach ($all_answers as $item) {
@@ -165,20 +202,26 @@ if ($passed) {
         }
         $ans_stmt->close();
 
-        // Award bonus points
+        // ── Award bonus points ────────────────────────────────────────────
         $bonus = 35;
         $upd = $conn->prepare("UPDATE users SET points = points + ? WHERE id = ?");
         $upd->bind_param("ii", $bonus, $user_id);
         $upd->execute();
         $upd->close();
+
     } else {
+        // Already has a pass record (re-passed after rewatch) — no bonus
         $bonus = 0;
     }
 
-    // Clear rewatch flag
-    if ($aralin_id) {
+    // ── Clear rewatch flag for THIS aralin only ───────────────────────────
+    // FIX: Scope the UPDATE to the exact aralin_id so clearing Aralin 1's
+    // rewatch flag never accidentally affects Aralin 2, 3, etc.
+    if ($aralin_id > 0) {
         $clr = $conn->prepare(
-            "UPDATE done_aralin SET needs_rewatch = 0 WHERE user_id = ? AND aralin_id = ?"
+            "UPDATE done_aralin
+             SET needs_rewatch = 0
+             WHERE user_id = ? AND aralin_id = ?"
         );
         $clr->bind_param("ii", $user_id, $aralin_id);
         $clr->execute();
@@ -189,28 +232,34 @@ if ($passed) {
         'status'       => 'success',
         'raw_points'   => $score,
         'total_items'  => $total_items,
-        'bonus_points' => $bonus ?? 0,
+        'bonus_points' => $bonus,
         'first_pass'   => $first_pass,
         'attempts'     => $attempt_cnt,
         'is_completed' => true,
     ]);
 
 } else {
-    // FAILED — set rewatch flag so they must watch the video again
-    if ($aralin_id) {
+    // ── FAILED — require rewatch for THIS aralin before retrying ─────────
+    // FIX: Scope to aralin_id so a failed attempt on Aralin 2 doesn't
+    // force a rewatch of Aralin 1.
+    if ($aralin_id > 0) {
         $rw = $conn->prepare(
-            "UPDATE done_aralin SET needs_rewatch = 1 WHERE user_id = ? AND aralin_id = ?"
+            "UPDATE done_aralin
+             SET needs_rewatch = 1
+             WHERE user_id = ? AND aralin_id = ?"
         );
         $rw->bind_param("ii", $user_id, $aralin_id);
         $rw->execute();
         $rw->close();
     }
 
+    $percentage = ($total_items > 0) ? round(($score / $total_items) * 100) : 0;
+
     echo json_encode([
         'status'       => 'failed',
         'raw_points'   => $score,
         'total_items'  => $total_items,
-        'percentage'   => round(($score / $total_items) * 100),
+        'percentage'   => $percentage,
         'attempts'     => $attempt_cnt,
         'is_completed' => false,
         'message'      => 'Hindi nakamit ang 80%. Pakitingnan muli ang aralin bago muling sumubok.',
