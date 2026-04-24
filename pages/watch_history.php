@@ -30,7 +30,7 @@ if (isset($_GET['aralinId'])) {
 <!-- Page Content -->
 <div class="container py-4">
     <h4 class="my-3 text-main">
-        <i class="bi bi-journals me-2"></i>Mga nakapanood sa <?= $aralin['title'] ?>
+        <i class="bi bi-journals me-2"></i>Mga nakapanood sa <?= $aralin['aralin_title'] ?>
     </h4>
 
     <table class="table table-striped">

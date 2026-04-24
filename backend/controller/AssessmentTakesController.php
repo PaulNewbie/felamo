@@ -26,7 +26,7 @@ class AssessmentTakesController extends db_connect
                 u.first_name, 
                 u.last_name, 
                 at.total,
-                a.title AS assessment_title, 
+                a.assessment_title, 
                 COUNT(atl.id) AS total_attempts
             FROM assessment_takes AS at 
             JOIN assessments AS a ON at.assessment_id = a.id

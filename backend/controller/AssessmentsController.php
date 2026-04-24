@@ -42,7 +42,7 @@ class AssesmentsController extends db_connect
     {
         if (empty($assessment_id)) {
             // THE FIX: Insert using aralin_id
-            $stmt = $this->conn->prepare("INSERT INTO assessments (aralin_id, title, description) VALUES (?, ?, ?)");
+            $stmt = $this->conn->prepare("INSERT INTO assessments (aralin_id, assessment_title, description) VALUES (?, ?, ?)");
             if (!$stmt) {
                 echo json_encode(['status' => 'error', 'message' => 'Prepare failed: ' . $this->conn->error]);
                 return;
@@ -62,7 +62,7 @@ class AssesmentsController extends db_connect
             $stmt->close();
         } else {
             // THE FIX: Update using aralin_id
-            $stmt = $this->conn->prepare("UPDATE assessments SET title = ?, description = ?, aralin_id = ? WHERE id = ?");
+            $stmt = $this->conn->prepare("UPDATE assessments SET assessment_title = ?, description = ?, aralin_id = ? WHERE id = ?");
             if (!$stmt) {
                 echo json_encode(['status' => 'error', 'message' => 'Prepare failed: ' . $this->conn->error]);
                 return;

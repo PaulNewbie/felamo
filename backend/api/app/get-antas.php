@@ -93,7 +93,7 @@ $join_stmt = $conn->prepare("
         l.level,
         a.id AS aralin_id,
         a.aralin_no,
-        a.title AS aralin_title,
+        a.aralin_title,
         a.summary,
         a.details,
         a.attachment_filename
@@ -154,12 +154,12 @@ while ($row = $result->fetch_assoc()) {
 
     if (!empty($row['aralin_id'])) {
         $levels[$level_id]['aralins'][] = [
-            'id' => $row['aralin_id'],
-            'aralin_no' => $row['aralin_no'],
-            'title' => $row['aralin_title'],
-            'summary' => $row['summary'],
-            'details' => $row['details'],
-            'attachment_filename' => $row['attachment_filename']
+            'id'                  => $row['aralin_id'],
+            'aralin_no'           => $row['aralin_no'],
+            'aralin_title'        => $row['aralin_title'] ?? '',
+            'summary'             => $row['summary']             ?? '',
+            'details'             => $row['details']             ?? '',
+            'attachment_filename' => $row['attachment_filename'] ?? '',
         ];
     }
 }

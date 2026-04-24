@@ -13,7 +13,7 @@ if ($aralin_id) {
             if ($aralinResult && is_object($aralinResult) && $aralinResult->num_rows > 0) {
                 $aralin = $aralinResult->fetch_assoc();
                 
-                $aralinText = isset($aralin['title']) ? $aralin['title'] : "Aralin";
+                $aralinText = isset($aralin['aralin_title']) ? $aralin['aralin_title'] : "Aralin";
                 
                 // Fetch the actual aralin_no from the database row
                 // (Assuming your column is named 'aralin_no'. Change it if it is named something else)

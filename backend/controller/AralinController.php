@@ -105,7 +105,7 @@ class AralinController extends db_connect
         $next_aralin_no = ($max_aralin_no ?? 0) + 1;
 
         $stmt = $this->conn->prepare("
-        INSERT INTO aralin (aralin_no, title, summary, details, attachment_filename, level_id)
+        INSERT INTO aralin (aralin_no, aralin_title, summary, details, attachment_filename, level_id)
         VALUES (?, ?, ?, ?, ?, ?)
     ");
 
@@ -198,7 +198,7 @@ class AralinController extends db_connect
 
         $stmt = $this->conn->prepare("
         UPDATE aralin 
-        SET title = ?, summary = ?, details = ?, attachment_filename = ? 
+        SET aralin_title = ?, summary = ?, details = ?, attachment_filename = ? 
         WHERE id = ? AND level_id = ?
     ");
 
@@ -230,11 +230,12 @@ class AralinController extends db_connect
     public function GetDoneAralin($userId)
     {
         $q = $this->conn->prepare("
-        SELECT antas.level, a.aralin_no, a.title, da.completed_at
-        FROM `done_aralin` AS da
-        JOIN `aralin` AS a ON da.aralin_id = a.id
-        JOIN `levels` AS antas ON a.level_id = antas.id
-        WHERE da.user_id = ?");
+            SELECT antas.level, a.aralin_no, a.aralin_title AS title, da.completed_at
+            FROM `done_aralin` AS da
+            JOIN `aralin` AS a ON da.aralin_id = a.id
+            JOIN `levels` AS antas ON a.level_id = antas.id
+            WHERE da.user_id = ?
+        ");
 
         if (!$q) {
             echo json_encode([

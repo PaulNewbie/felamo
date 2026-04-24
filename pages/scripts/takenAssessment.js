@@ -40,7 +40,7 @@ $(document).ready(function () {
                 } else {
                     data.forEach((item) => {
                         let id = item.id;
-                        let title = item.assessment_title || item.title || "Untitled Assessment";
+                        let title = item.assessment_title || "Untitled Assessment";
                         let studentName = item.student_name || item.fullname || "Unknown Student";
                         let score = item.score || 0;
                         let total = item.total_items || 0;

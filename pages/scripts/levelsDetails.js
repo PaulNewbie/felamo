@@ -48,7 +48,7 @@ $(document).ready(function () {
                                         </div>
                                     </td>
                                     <td>
-                                        <div class="aralin-title">${aralin.title}</div>
+                                       <div class="aralin-title">${aralin.aralin_title}</div>
                                     </td>
                                     <td>
                                         <div class="aralin-summary">${summary}</div>
@@ -62,7 +62,7 @@ $(document).ready(function () {
                                                 <li>
                                                     <a class="dropdown-item edit-aralin-btn" href="#" 
                                                     data-id="${aralin.id}" 
-                                                    data-title="${aralin.title}" 
+                                                    data-title="${aralin.aralin_title}" 
                                                     data-summary="${aralin.summary}" 
                                                     data-details="${aralin.details}" 
                                                     data-attachment="${videoFile}">

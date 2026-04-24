@@ -103,7 +103,7 @@ function fetchExistingAssessment(aralinId) {
             if (response.status === "success" && response.data && response.data.length > 0) {
                 let assessment = response.data[0]; 
                 
-                $("#assessment_title").val(assessment.title);
+                $("#assessment_title").val(assessment.assessment_title);
                 $("#assessment_description").val(assessment.description);
                 
                 let assessmentId = assessment.id; 
