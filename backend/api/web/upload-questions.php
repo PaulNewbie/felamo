@@ -35,19 +35,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['csv_file'])) {
     // If anything fails in the try block, no data is saved to the database.
     $conn->begin_transaction();
 
-    try {
+try {
         // Skip the header row
         $header = fgetcsv($handle);
 
         $rowIndex = 2; // Track rows for precise error reporting (Row 1 is the header)
-        $stmt = $conn->prepare("INSERT INTO `questions` 
-            (`assessment_id`, `concept_group_id`, `type`, `difficulty`, `question_text`, `choices`, `correct_answer`) 
-            VALUES (?, ?, ?, ?, ?, ?, ?)");
-
-        if (!$stmt) {
-            throw new Exception("Database prepare error: " . $conn->error);
-        }
-
+        
         $allowedTypes = ['multiple_choice', 'true_false', 'identification', 'jumbled_word'];
         $allowedDifficulties = ['easy', 'medium', 'hard'];
 
@@ -56,13 +49,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['csv_file'])) {
         }
         $assessment_id = $_POST['assessment_id'];
 
-        // 3. Process the CSV row by row (Now expecting 6 columns, not 7)
+        // --- OPTIMIZATION: THE PRE-FETCH ---
+        // Fetch all existing questions for this assessment ONCE
+        $existingQuestions = [];
+        $fetchStmt = $conn->prepare("SELECT question_text FROM `questions` WHERE `assessment_id` = ?");
+        if ($fetchStmt) {
+            $fetchStmt->bind_param("i", $assessment_id);
+            $fetchStmt->execute();
+            $result = $fetchStmt->get_result();
+            while ($qRow = $result->fetch_assoc()) {
+                // Store the text in lowercase as an array KEY for lightning-fast lookup
+                $cleanText = strtolower(trim($qRow['question_text']));
+                $existingQuestions[$cleanText] = true; 
+            }
+            $fetchStmt->close();
+        }
+        // ------------------------------------
+
+        // Prepare the INSERT statement
+        $stmt = $conn->prepare("INSERT INTO `questions` 
+            (`assessment_id`, `concept_group_id`, `type`, `difficulty`, `question_text`, `choices`, `correct_answer`) 
+            VALUES (?, ?, ?, ?, ?, ?, ?)");
+
+        if (!$stmt) {
+            throw new Exception("Database prepare error: " . $conn->error);
+        }
+
+        $insertedCount = 0;
+        $skippedCount = 0;
+
+        // 3. Process the CSV row by row
         while (($row = fgetcsv($handle)) !== false) {
             if (count($row) < 6) {
                 throw new Exception("Row $rowIndex is missing columns. Expected 6, found " . count($row));
             }
 
-            // Shifted the indexes down by 1 because assessment_id is no longer in the CSV
             $concept_group_id = trim($row[0]);
             $type = strtolower(trim($row[1]));
             $difficulty = strtolower(trim($row[2]));
@@ -84,6 +105,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['csv_file'])) {
                 throw new Exception("Row $rowIndex: Question text and correct answer cannot be empty.");
             }
 
+            // --- THE LAG-FREE DUPLICATE CHECK ---
+            $checkText = strtolower($question_text);
+            
+            if (isset($existingQuestions[$checkText])) {
+                // Question exists in our PHP memory array! Skip it instantly.
+                $skippedCount++;
+                $rowIndex++;
+                continue; 
+            }
+            
+            // If it's a new question, add it to our tracking array so we don't 
+            // insert duplicates if the CSV file itself contains duplicate rows!
+            $existingQuestions[$checkText] = true;
+            // ------------------------------------
+
             // 4. Process Multiple Choice Options into JSON
             $choicesJSON = null;
             if ($type === 'multiple_choice') {
@@ -92,7 +128,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['csv_file'])) {
                 }
                 
                 $choicesArray = [];
-                // Parse the string "A: Dog, B: Cat, C: Fish, D: Bird"
                 $splitChoices = explode(',', $raw_choices);
                 foreach ($splitChoices as $choice) {
                     $parts = explode(':', $choice, 2);
@@ -104,18 +139,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['csv_file'])) {
                         throw new Exception("Row $rowIndex: Choices format invalid. Expected 'A: Answer1, B: Answer2'. Got: $choice");
                     }
                 }
-                // Convert array to JSON string for the database
                 $choicesJSON = json_encode($choicesArray);
             }
 
             // 5. Bind parameters and execute the query
-            // 'iisssss' = integer, integer, string, string, string, string, string
             $stmt->bind_param("iisssss", $assessment_id, $concept_group_id, $type, $difficulty, $question_text, $choicesJSON, $correct_answer);
             
             if (!$stmt->execute()) {
                 throw new Exception("Row $rowIndex: Failed to insert data (" . $stmt->error . ")");
             }
 
+            $insertedCount++;
             $rowIndex++;
         }
 

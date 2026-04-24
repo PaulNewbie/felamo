@@ -75,28 +75,17 @@ if ($requestType == "GetAssessment") {
     $assessment_id = $_POST['assessment_id'];
 
     $controller->ImportJumbledWords($assessment_id, $questions);
-} elseif ($requestType == "UpdateSingleQuestion") {
+} elseif ($requestType == "DeleteSingleQuestion") {
     require_once(__DIR__ . '/../../class.php');
     $db = new global_class();
 
     $question_id = $_POST['question_id'];
-    $question_text = $_POST['question_text'];
-    $correct_answer = $_POST['correct_answer'];
-    $choices = $_POST['choices'] ?? null;
-    $difficulty = $_POST['difficulty'] ?? 'easy';
 
-    if (!empty($choices)) {
-        // Update MCQ with choices JSON
-        $stmt = $db->conn->prepare("UPDATE questions SET question_text = ?, correct_answer = ?, choices = ? WHERE id = ?");
-        $stmt->bind_param("sssi", $question_text, $correct_answer, $choices, $question_id);
-    } else {
-        // Update regular questions without choices JSON
-        $stmt = $db->conn->prepare("UPDATE questions SET question_text = ?, correct_answer = ? WHERE id = ?");
-        $stmt->bind_param("ssi", $question_text, $correct_answer, $question_id);
-    }
+    $stmt = $db->conn->prepare("DELETE FROM questions WHERE id = ?");
+    $stmt->bind_param("i", $question_id);
     
     if ($stmt->execute()) {
-        echo json_encode(['status' => 'success']);
+        echo json_encode(['status' => 'success', 'message' => 'Question deleted.']);
     } else {
         http_response_code(500);
         echo json_encode(['status' => 'error', 'message' => $db->conn->error]);

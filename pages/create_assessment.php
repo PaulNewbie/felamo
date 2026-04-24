@@ -197,14 +197,9 @@ if ($aralin_id) {
                         Gumagawa ka ng pagsusulit para sa <strong>Aralin <?= htmlspecialchars($aralin_no) ?>: <?= htmlspecialchars($aralinText) ?></strong>.
                     </div>
                 </div>
-                
                 <div class="mb-3">
-                    <label class="form-label text-secondary fw-bold text-uppercase fs-7">Difficulty Level</label>
-                    <select class="form-select border-secondary fw-bold difficulty-select" required>
-                        <option value="easy" class="text-success">Easy</option>
-                        <option value="medium" class="text-warning">Medium</option>
-                        <option value="hard" class="text-danger">Hard</option>
-                    </select>
+                    <label class="form-label text-secondary fw-bold text-uppercase fs-7">Title</label>
+                    <input type="text" class="form-control" id="assessment_title" name="title" placeholder="e.g. Unang Pagsusulit" required>
                 </div>
                 <div class="mb-0">
                     <label class="form-label">Description</label>
