@@ -19,8 +19,8 @@ if (!empty($user['profile_picture'])) {
         <img src="<?= htmlspecialchars($profilePicPath) ?>?v=<?= time() ?>" alt="Profile"> 
         
         <div>
-            <a href="profile.php" style="color: inherit; text-decoration: none;">
-                <h5><?= htmlspecialchars($currentUserName) ?></h5>
+            <a href="profile.php" style="color: inherit; text-decoration: none;">               
+                <h5><?= htmlspecialchars($currentUserName = trim(($user['first_name'] ?? '') . ' ' . ($user['last_name'] ?? ''))); ?></h5>
             </a>
             <small style="opacity: 0.8; font-size: 0.7rem;">
                 <?= $isSuperAdmin ? 'SUPER ADMIN' : strtoupper($currentUserRole) ?>

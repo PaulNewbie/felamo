@@ -37,7 +37,7 @@ $(document).ready(function () {
                 const status = teacher.is_active == 1 ? "Active" : "Inactive";
                 tbody.append(`
                   <tr>
-                    <td>${teacher.name}</td>
+                    <td>${teacher.last_name}, ${teacher.first_name}</td> 
                     <td>${teacher.email}</td>
                     <td>${teacher.grade_level ?? "N/A"}</td>
                     <td>${status}</td>
@@ -97,11 +97,12 @@ $(document).ready(function () {
   $("#insert-teacher-form").submit(function (e) {
     e.preventDefault();
 
-    const name = $("#teacher-name").val().trim();
+    const first_name = $("#teacher-first-name").val().trim();
+    const last_name  = $("#teacher-last-name").val().trim();
     const email = $("#teacher-email").val().trim();
     const password = $("#teacher-password").val();
 
-    if (!name || !email || !password) {
+    if (!first_name || !last_name || !email || !password) {
       showAlert("alert-warning", "All fields are required.");
       return;
     }
@@ -111,7 +112,8 @@ $(document).ready(function () {
       url: "../backend/api/web/admin.php",
       data: {
         requestType: "InsertTeacher",
-        name,
+        first_name,
+        last_name,
         email,
         password,
       },
@@ -176,7 +178,8 @@ $(document).ready(function () {
             const accPassword = columns[2]?.trim();
 
             const obj = {
-              name: accName,
+              first_name: accName.split(" ")[0],
+              last_name: accName.split(" ").slice(1).join(" "),
               email: accEmail,
               password: accPassword,
             };

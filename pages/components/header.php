@@ -89,7 +89,7 @@ if ($userResult->num_rows > 0) {
                     ?>
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                            <?= htmlspecialchars($user['name']) ?>
+                            <?= htmlspecialchars($currentUserName = trim(($user['first_name'] ?? '') . ' ' . ($user['last_name'] ?? ''))); ?>
                         </a>
                         <ul class="dropdown-menu dropdown-menu-end bg-main" aria-labelledby="userDropdown">
 

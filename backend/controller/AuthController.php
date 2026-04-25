@@ -21,7 +21,7 @@ class AuthController extends db_connect
     // ... (Keep your GetUser functions as they are) ...
     public function GetUser($id)
     {
-        $q = $this->conn->prepare("SELECT * FROM `admin` WHERE `id` = ? AND `is_active` = 1");
+        $q = $this->conn->prepare("SELECT * FROM `web_users` WHERE `id` = ? AND `is_active` = 1");
         $q->bind_param("i", $id);
         if ($q->execute()) { return $q->get_result(); } else { return null; }
     }
@@ -41,25 +41,25 @@ class AuthController extends db_connect
     
     public function GetUser2($id)
     {
-        ob_clean(); // Clean before sending
-        $q = $this->conn->prepare("SELECT * FROM `admin` WHERE `id` = ? AND `is_active` = 1");
+        ob_clean();
+        $q = $this->conn->prepare(
+            "SELECT * FROM `web_users` WHERE `id` = ? AND `is_active` = 1"
+        );
         $q->bind_param("i", $id);
-
         if ($q->execute()) {
             $result = $q->get_result();
-            $user = $result->fetch_assoc();
+            $user   = $result->fetch_assoc();
             echo json_encode([
                 'status' => 'success',
-                'message' => 'User details',
-                'data' => [
-                    'id' => $user['id'],
-                    'name' => $user['name'],
-                    'email' => $user['email'],
-                    'role' => $user['role']
+                'data'   => [
+                    'id'         => $user['id'],
+                    'first_name' => $user['first_name'],  
+                    'last_name'  => $user['last_name'],   
+                    'name'       => $user['first_name'] . ' ' . $user['last_name'], // backward compat
+                    'email'      => $user['email'],
+                    'role'       => $user['role'],
                 ]
             ]);
-        } else {
-            echo json_encode(['status' => 'error', 'message' => 'Something went wrong.']);
         }
     }
 
@@ -69,7 +69,7 @@ class AuthController extends db_connect
         $email = $data['email'];
         $password = $data['password'];
 
-        $q = $this->conn->prepare("SELECT * FROM `admin` WHERE `email` = ? AND `is_active` = 1");
+        $q = $this->conn->prepare("SELECT * FROM `web_users` WHERE `email` = ? AND `is_active` = 1");
         $q->bind_param("s", $email);
 
         if ($q->execute()) {
@@ -86,7 +86,7 @@ class AuthController extends db_connect
                 echo json_encode([
                     'status' => 'success',
                     'message' => 'Logged in',
-                    'user' => ['id' => $user['id'], 'name' => $user['name'], 'email' => $user['email'], 'role' => $user['role']]
+                    'user' => ['id' => $user['id'], 'email' => $user['email'], 'role' => $user['role']]
                 ]);
             } else {
                 ob_clean();
@@ -128,7 +128,7 @@ class AuthController extends db_connect
         $dbPath = 'backend/storage/profile-pictures/' . $filename;
 
         if (move_uploaded_file($file['tmp_name'], $targetPath)) {
-            $stmt = $this->conn->prepare("UPDATE `admin` SET `profile_picture` = ? WHERE `id` = ?");
+            $stmt = $this->conn->prepare("UPDATE `web_users` SET `profile_picture` = ? WHERE `id` = ?");
             if ($stmt) {
                 $stmt->bind_param("si", $dbPath, $id);
                 if ($stmt->execute()) {
@@ -166,11 +166,11 @@ class AuthController extends db_connect
         }
 
         if ($hashedPassword) {
-            $stmt = $this->conn->prepare("UPDATE admin SET name = ?, email = ?, password = ? WHERE id = ?");
-            $stmt->bind_param("sssi", $name, $email, $hashedPassword, $id);
+            $stmt = $this->conn->prepare("UPDATE web_users SET name = ?, email = ?, password = ? WHERE id = ?");
+            $stmt->bind_param("sssi", $first_name, $last_name, $email, $hashedPassword, $id);
         } else {
-            $stmt = $this->conn->prepare("UPDATE admin SET name = ?, email = ? WHERE id = ?");
-            $stmt->bind_param("ssi", $name, $email, $id);
+            $stmt = $this->conn->prepare("UPDATE web_users SET name = ?, email = ? WHERE id = ?");
+            $stmt->bind_param("ssi", $first_name, $last_name, $email, $id);
         }
 
         if (!$stmt) {

@@ -20,7 +20,7 @@ class AdminsController extends db_connect
 
     public function GetTeachers()
     {
-        $q = $this->conn->prepare("SELECT * FROM `admin` WHERE `role` = 'teacher' AND `is_active` = 1");
+        $q = $this->conn->prepare("SELECT * FROM `web_users` WHERE `role` = 'teacher' AND `is_active` = 1");
         // $q->bind_param("s", 'teacher');
 
         if ($q->execute()) {
@@ -52,8 +52,8 @@ class AdminsController extends db_connect
         $is_active = 1;
 
         $stmt = $this->conn->prepare("
-        INSERT INTO `admin` (`name`, `email`, `password`, `role`, `grade_level`, `is_active`)
-        VALUES (?, ?, ?, ?, 7, ?)
+        INSERT INTO `web_users` (`first_name`, `last_name`, `email`, `password`, `role`, `grade_level`, `is_active`)
+        VALUES (?, ?, ?, ?, ?, 7, ?)
     ");
 
         if (!$stmt) {
@@ -96,7 +96,7 @@ class AdminsController extends db_connect
 
     public function UpdateTeacher($id, $name, $grade, $section, $email, $plainPassword, $is_active)
     {
-        $sql = "UPDATE `admin` SET `name` = ?, `email` = ?, `role` = ?, `grade_level` = ?, `section` = ?, `is_active` = ?";
+        $sql = "UPDATE `web_users` SET `first_name` = ?, `last_name` = ?, `email` = ?, `role` = ?, `grade_level` = ?, `section` = ?, `is_active` = ?";
 
         $params = [$name, $email, $grade, $section, $is_active];
         $types = "ssisi";
@@ -148,7 +148,7 @@ class AdminsController extends db_connect
 
         foreach ($accs as $acc) {
             $checkStmt = $this->conn->prepare("
-            SELECT 1 FROM `admin`
+            SELECT 1 FROM `web_users`
             WHERE `email` = ?
         ");
 
@@ -177,7 +177,7 @@ class AdminsController extends db_connect
             $checkStmt->close();
 
             $insertStmt = $this->conn->prepare("
-            INSERT INTO `admin` (`name`, `email`, `password`, `role`, `grade_level`, `is_active`)
+            INSERT INTO `web_users` (`first_name`, `last_name`, `email`, `password`, `role`, `grade_level`, `is_active`)
             VALUES (?, ?, ?, 'teacher', 7, 1)
         ");
 

@@ -188,7 +188,10 @@ $currentUserId = isset($user['id']) ? $user['id'] : (isset($auth_user_id) ? $aut
                         <label class="form-label">Full Name</label>
                         <div class="input-group">
                             <span class="input-group-text"><i class="bi bi-person-fill"></i></span>
-                            <input type="text" id="name" name="name" class="form-control form-control-custom" required placeholder="Enter your full name" value="<?= isset($user['name']) ? htmlspecialchars($user['name']) : '' ?>">
+                            <input type="text" id="first_name" name="first_name" class="form-control-custom"
+                                value="<?= htmlspecialchars($user['first_name'] ?? '') ?>">
+                            <input type="text" id="last_name" name="last_name" class="form-control-custom"
+                                value="<?= htmlspecialchars($user['last_name'] ?? '') ?>">
                         </div>
                     </div>
 

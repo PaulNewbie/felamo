@@ -51,7 +51,7 @@ class HomeController extends db_connect
 
         // number of registers users count (web)
         $registeredWebUsersCountStmt = $this->conn->prepare("
-        SELECT COUNT(*) AS count FROM `admin`");
+        SELECT COUNT(*) AS count FROM `web_users`");
 
         $registeredWebUsersCountStmt->execute();
         $registeredWebUsersCountResult = $registeredWebUsersCountStmt->get_result();

@@ -8,12 +8,11 @@ $controller = new AdminsController();
 if ($requestType == "GetTeachers") {
     $controller->GetTeachers();
 } elseif ($requestType == "InsertTeacher") {
-    $name = $_POST['name'];
-    // $section = $_POST['section'];
-    $email = $_POST['email'];
+    $first_name    = $_POST['first_name'];
+    $last_name     = $_POST['last_name'];
+    $email         = $_POST['email'];
     $plainPassword = $_POST['password'];
-
-    $controller->InsertTeacher($name, $email, $plainPassword);
+    $controller->InsertTeacher($first_name, $last_name, $email, $plainPassword);
 } elseif ($requestType == "UpdateTeacher") {
 
     $id = $_POST['id'];

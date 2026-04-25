@@ -20,7 +20,8 @@ $(document).ready(function () {
         let res = JSON.parse(response);
 
         if (res.status === "success") {
-          $("#name").val(res.data.name);
+          $("#first_name").val(res.data.first_name);
+          $("#last_name").val(res.data.last_name);
           $("#email").val(res.data.email);
         } else {
           showAlert("alert-danger", "Someting went wrong!");
@@ -35,7 +36,8 @@ $(document).ready(function () {
   $("#editUserForm").submit(function (e) {
     e.preventDefault();
 
-    let name = $("#name").val();
+    let first_name = $("#first_name").val();
+    let last_name = $("#last_name").val();
     let email = $("#email").val();
     let newPassword = $("#newPassword").val();
     let newPassword2 = $("#newPassword2").val();
@@ -55,7 +57,8 @@ $(document).ready(function () {
       data: {
         requestType: "EditUser",
         auth_user_id,
-        name,
+        first_name, 
+        last_name,
         email,
         newPassword,
       },

@@ -33,13 +33,13 @@ elseif ($requestType == "GetProfileDetails") {
     exit;
 } 
 elseif ($requestType == "EditUser") {
-    $id = $_POST['auth_user_id'] ?? 0;
-    $name = $_POST['name'] ?? '';
-    $email = $_POST['email'] ?? '';
+    $id         = $_POST['auth_user_id'] ?? 0;
+    $first_name = $_POST['first_name']   ?? '';   // ← changed from 'name'
+    $last_name  = $_POST['last_name']    ?? '';   // ← added
+    $email      = $_POST['email']        ?? '';
     $newPassword = $_POST['newPassword'] ?? '';
-    $controller->UpdateUser($id, $name, $email, $newPassword);
-    exit;
-} 
+    $controller->UpdateUser($id, $first_name, $last_name, $email, $newPassword);
+}
 elseif ($requestType == "UploadProfilePicture") {
     $id = $_POST['auth_user_id'] ?? 0;
     if (isset($_FILES['profile_picture'])) {
