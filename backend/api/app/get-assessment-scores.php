@@ -56,7 +56,7 @@ $session_stmt->close();
 
 $stmt = $conn->prepare("
     SELECT at.*, u.first_name, u.last_name 
-    FROM assessment_takes AS at
+    FROM assessment_results AS at
     JOIN users AS u ON at.lrn = u.lrn
     WHERE at.assessment_id = ?
     ORDER BY points DESC

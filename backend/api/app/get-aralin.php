@@ -71,7 +71,7 @@ $result = $stmt->get_result();
 $aralin_data = [];
 
 while ($row = $result->fetch_assoc()) {
-    $done_stmt = $conn->prepare("SELECT 1 FROM done_aralin WHERE aralin_id = ? AND user_id = ? LIMIT 1");
+    $done_stmt = $conn->prepare("SELECT 1 FROM student_aralin_progress WHERE aralin_id = ? AND user_id = ? LIMIT 1");
     $done_stmt->bind_param("ii", $row['id'], $user_id);
     $done_stmt->execute();
     $done_stmt->store_result();

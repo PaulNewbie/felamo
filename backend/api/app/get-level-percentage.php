@@ -108,7 +108,7 @@ while ($level = $levels_result->fetch_assoc()) {
 
     $assessment_id = $assess_result['id'];
 
-    $check_stmt = $conn->prepare("SELECT id FROM assessment_takes WHERE assessment_id = ? AND lrn = ? LIMIT 1");
+    $check_stmt = $conn->prepare("SELECT id FROM assessment_results WHERE assessment_id = ? AND lrn = ? LIMIT 1");
     
     // FIX 2: Change "ii" to "is" because $lrn is a string (e.g. '1234567891000')
     $check_stmt->bind_param("is", $assessment_id, $lrn);

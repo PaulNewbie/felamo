@@ -64,7 +64,7 @@ if (!$lrn) {
 
 $conn->begin_transaction();
 
-$check_stmt = $conn->prepare("SELECT id FROM assessment_takes WHERE assessment_id = ? AND lrn = ?");
+$check_stmt = $conn->prepare("SELECT id FROM assessment_results WHERE assessment_id = ? AND lrn = ?");
 $check_stmt->bind_param("is", $assessment_id, $lrn);
 $check_stmt->execute();
 $check_stmt->store_result();
@@ -84,7 +84,7 @@ try {
     $total_points = 0;
     $total_questions = 0;
 
-    $stmtTake = $conn->prepare("INSERT INTO assessment_takes (assessment_id, lrn, created_at, updated_at, points, total) VALUES (?, ?, NOW(), NOW(), 0, 0)");
+    $stmtTake = $conn->prepare("INSERT INTO assessment_results (assessment_id, lrn, created_at, updated_at, points, total) VALUES (?, ?, NOW(), NOW(), 0, 0)");
     $stmtTake->bind_param("is", $assessment_id, $lrn);
     $stmtTake->execute();
     $take_id = $stmtTake->insert_id;
@@ -180,7 +180,7 @@ try {
         $stmtInsert->close();
     }
 
-    $stmtUpdate = $conn->prepare("UPDATE assessment_takes SET points = ?, total = ? WHERE id = ?");
+    $stmtUpdate = $conn->prepare("UPDATE assessment_results SET points = ?, total = ? WHERE id = ?");
     $stmtUpdate->bind_param("iii", $total_points, $total_questions, $take_id);
     $stmtUpdate->execute();
     $stmtUpdate->close();

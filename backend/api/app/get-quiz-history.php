@@ -45,7 +45,7 @@ if (!$lrn) {
 // ── 3. Get the assessment_id for THIS specific aralin ─────────────────────────
 // FIX: Always resolve assessment_id from aralin_id first. This is the key
 // that keeps every aralin's history completely independent. We never query
-// assessment_takes globally — every lookup goes through THIS assessment_id.
+// assessment_results globally — every lookup goes through THIS assessment_id.
 $aq = $conn->prepare("SELECT id FROM assessments WHERE aralin_id = ? LIMIT 1");
 $aq->bind_param("i", $aralin_id);
 $aq->execute();
@@ -63,7 +63,7 @@ $assessment_id = (int)$assessment['id'];
 // This means Aralin 1's history never bleeds into Aralin 2's history page.
 $take = $conn->prepare(
     "SELECT id, points, total, created_at
-     FROM assessment_takes
+     FROM assessment_results
      WHERE assessment_id = ? AND lrn = ? AND is_completed = 1
      ORDER BY id DESC
      LIMIT 1"
@@ -83,7 +83,7 @@ if (!$take_row) {
 }
 
 // ── 5. Pull the answer log for THIS aralin's assessment only ──────────────────
-// FIX: Filter assessment_answer_log by the exact assessment_id resolved
+// FIX: Filter assessment_answer_logs by the exact assessment_id resolved
 // from this aralin. Without this filter the join would return answers from
 // other aralins that happened to have overlapping question_ids.
 $ans = $conn->prepare(
@@ -94,7 +94,7 @@ $ans = $conn->prepare(
          q.choices,
          aal.student_answer,
          aal.attempted_at
-     FROM assessment_answer_log AS aal
+     FROM assessment_answer_logs AS aal
      JOIN questions AS q ON aal.question_id = q.id
      WHERE aal.assessment_id = ? AND aal.lrn = ?
      ORDER BY aal.id ASC"

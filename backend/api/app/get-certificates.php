@@ -67,7 +67,7 @@ if (!$student_lrn) {
 
 $level_stmt = $conn->prepare("
     SELECT DISTINCT l.level 
-    FROM assessment_takes AS at
+    FROM assessment_results AS at
     JOIN assessments AS a ON at.assessment_id = a.id
     JOIN aralin AS ar ON a.aralin_id = ar.id
     JOIN levels AS l ON ar.level_id = l.id

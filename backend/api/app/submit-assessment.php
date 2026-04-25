@@ -64,7 +64,7 @@ $aralin_id = (int)($aralin_row['aralin_id'] ?? 0);
 // FIX: Scope check to the exact assessment_id so passing Aralin 1 never
 // blocks Aralin 2, 3, etc.
 $already_done = $conn->prepare(
-    "SELECT id FROM assessment_takes
+    "SELECT id FROM assessment_results
      WHERE assessment_id = ? AND lrn = ? AND is_completed = 1
      LIMIT 1"
 );
@@ -144,7 +144,7 @@ foreach ($all_answers as $item) {
 // ── 7. Count attempts for THIS assessment only (from log table) ───────────────
 $attempt_q = $conn->prepare(
     "SELECT COUNT(*) AS cnt
-     FROM assessment_takes_log
+     FROM assessment_attempt_logs
      WHERE assessment_id = ? AND lrn = ?"
 );
 $attempt_q->bind_param("is", $assessment_id, $lrn);
@@ -154,7 +154,7 @@ $attempt_q->close();
 
 // Always log this attempt regardless of pass/fail
 $log_stmt = $conn->prepare(
-    "INSERT INTO assessment_takes_log (assessment_id, lrn, score, total, attempted_at)
+    "INSERT INTO assessment_attempt_logs (assessment_id, lrn, score, total, attempted_at)
      VALUES (?, ?, ?, ?, NOW())"
 );
 $log_stmt->bind_param("isii", $assessment_id, $lrn, $score, $total_items);
@@ -169,7 +169,7 @@ $passed         = ($total_items > 0) && (($score / $total_items) >= $pass_thresh
 if ($passed) {
     // Check if this is the student's first-ever pass for THIS assessment
     $prev = $conn->prepare(
-        "SELECT id FROM assessment_takes WHERE assessment_id = ? AND lrn = ? LIMIT 1"
+        "SELECT id FROM assessment_results WHERE assessment_id = ? AND lrn = ? LIMIT 1"
     );
     $prev->bind_param("is", $assessment_id, $lrn);
     $prev->execute();
@@ -180,7 +180,7 @@ if ($passed) {
     if ($first_pass) {
         // ── Record the official pass ──────────────────────────────────────
         $ins = $conn->prepare(
-            "INSERT INTO assessment_takes
+            "INSERT INTO assessment_results
                  (assessment_id, lrn, points, total, is_completed, created_at)
              VALUES (?, ?, ?, ?, 1, NOW())"
         );
@@ -190,7 +190,7 @@ if ($passed) {
 
         // ── Save every answer for the history view of THIS aralin ─────────
         $ans_stmt = $conn->prepare(
-            "INSERT INTO assessment_answer_log
+            "INSERT INTO assessment_answer_logs
                  (assessment_id, lrn, question_id, student_answer, attempted_at)
              VALUES (?, ?, ?, ?, NOW())"
         );
@@ -219,7 +219,7 @@ if ($passed) {
     // rewatch flag never accidentally affects Aralin 2, 3, etc.
     if ($aralin_id > 0) {
         $clr = $conn->prepare(
-            "UPDATE done_aralin
+            "UPDATE student_aralin_progress
              SET needs_rewatch = 0
              WHERE user_id = ? AND aralin_id = ?"
         );
@@ -244,7 +244,7 @@ if ($passed) {
     // force a rewatch of Aralin 1.
     if ($aralin_id > 0) {
         $rw = $conn->prepare(
-            "UPDATE done_aralin
+            "UPDATE student_aralin_progress
              SET needs_rewatch = 1
              WHERE user_id = ? AND aralin_id = ?"
         );

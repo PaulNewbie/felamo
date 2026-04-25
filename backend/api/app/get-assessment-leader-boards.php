@@ -90,7 +90,7 @@ $section_stmt->close();
 
 $query = "
     SELECT u.*, at.points as assessment_points
-    FROM assessment_takes AS at
+    FROM assessment_results AS at
     JOIN assessments AS a ON at.assessment_id = a.id
     JOIN student_teacher_assignments AS sta ON sta.student_lrn = at.lrn
     JOIN users AS u ON u.lrn = at.lrn

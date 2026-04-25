@@ -69,7 +69,7 @@ if ($aralin_stmt->num_rows === 0) {
 $aralin_stmt->close();
 
 $chk = $conn->prepare(
-    "SELECT id, video_reward_claimed FROM done_aralin WHERE user_id = ? AND aralin_id = ?"
+    "SELECT id, video_reward_claimed FROM student_aralin_progress WHERE user_id = ? AND aralin_id = ?"
 );
 $chk->bind_param("ii", $user_id, $aralin_id);
 $chk->execute();
@@ -80,7 +80,7 @@ $points_awarded = 0;
 if (!$existing) {
     // First time watching — insert and award halo-halo points (50 pts)
     $ins = $conn->prepare(
-        "INSERT INTO done_aralin (user_id, aralin_id, completed_at, needs_rewatch, video_reward_claimed)
+        "INSERT INTO student_aralin_progress (user_id, aralin_id, completed_at, needs_rewatch, video_reward_claimed)
          VALUES (?, ?, NOW(), 0, 1)"
     );
     $ins->bind_param("ii", $user_id, $aralin_id);
@@ -94,7 +94,7 @@ if (!$existing) {
 } else {
     // Re-watch after a failed attempt — clear the rewatch flag, NO bonus
     $upd = $conn->prepare(
-        "UPDATE done_aralin SET needs_rewatch = 0, completed_at = NOW()
+        "UPDATE student_aralin_progress SET needs_rewatch = 0, completed_at = NOW()
          WHERE user_id = ? AND aralin_id = ?"
     );
     $upd->bind_param("ii", $user_id, $aralin_id);

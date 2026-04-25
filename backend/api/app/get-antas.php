@@ -126,7 +126,7 @@ while ($row = $result->fetch_assoc()) {
         $check_done_stmt = $conn->prepare("
             SELECT 
                 (SELECT COUNT(a.id) FROM assessments a JOIN aralin ar ON a.aralin_id = ar.id WHERE ar.level_id = ?) as total_assessments,
-                (SELECT COUNT(DISTINCT at.assessment_id) FROM assessment_takes at JOIN assessments a ON at.assessment_id = a.id JOIN aralin ar ON a.aralin_id = ar.id WHERE ar.level_id = ? AND at.lrn = ? AND at.is_completed = 1) as passed_assessments
+                (SELECT COUNT(DISTINCT at.assessment_id) FROM assessment_results at JOIN assessments a ON at.assessment_id = a.id JOIN aralin ar ON a.aralin_id = ar.id WHERE ar.level_id = ? AND at.lrn = ? AND at.is_completed = 1) as passed_assessments
         ");
 
         $check_done_stmt->bind_param("iis", $level_id, $level_id, $student_lrn);

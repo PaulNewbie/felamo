@@ -111,7 +111,7 @@ class HomeController extends db_connect
         /* THE FIX: We now bridge through the 'aralin' table! */
         LEFT JOIN `aralin` AS ar ON ar.level_id = l.id
         LEFT JOIN `assessments` AS a ON a.aralin_id = ar.id
-        LEFT JOIN `assessment_takes` AS at ON at.assessment_id = a.id
+        LEFT JOIN `assessment_results` AS at ON at.assessment_id = a.id
         WHERE l.level BETWEEN 1 AND 4 AND l.teacher_id = ?
         GROUP BY l.id, l.level
         ORDER BY l.level ASC
@@ -177,7 +177,7 @@ ORDER BY level ASC
                 $aralinPerLevel[$row['level_id']][] = $row['id'];
             }
 
-            $doneResult = $this->conn->query("SELECT user_id, aralin_id FROM done_aralin");
+            $doneResult = $this->conn->query("SELECT user_id, aralin_id FROM student_aralin_progress");
             $donePerUser = [];
             while ($row = $doneResult->fetch_assoc()) {
                 $donePerUser[$row['user_id']][] = $row['aralin_id'];

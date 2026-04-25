@@ -64,7 +64,7 @@ $assessment_id = (int)$assessment['id'];
 
 // ── 4. Check if student already PASSED THIS specific aralin's assessment ──────
 $already_stmt = $conn->prepare(
-    "SELECT id FROM assessment_takes
+    "SELECT id FROM assessment_results
      WHERE assessment_id = ? AND lrn = ? AND is_completed = 1
      LIMIT 1"
 );
@@ -85,7 +85,7 @@ if ($already_passed) {
 // ── 5. Check if aralin video was watched (BYPASSED FOR TESTING) ───────────────
 $done_stmt = $conn->prepare(
     "SELECT COUNT(*) AS done, COALESCE(MAX(needs_rewatch), 0) AS needs_rewatch
-     FROM done_aralin
+     FROM student_aralin_progress
      WHERE aralin_id = ? AND user_id = ?"
 );
 $done_stmt->bind_param("ii", $aralin_id, $user_id);

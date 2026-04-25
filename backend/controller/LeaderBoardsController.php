@@ -35,7 +35,7 @@ class LeaderBoardsController extends db_connect
             JOIN sections AS s ON sta.section_id = s.id
             LEFT JOIN levels AS l ON s.teacher_id = l.teacher_id
             LEFT JOIN assessments AS a ON l.id = a.level_id
-            LEFT JOIN assessment_takes AS at ON a.id = at.assessment_id AND at.lrn = u.lrn
+            LEFT JOIN assessment_results AS at ON a.id = at.assessment_id AND at.lrn = u.lrn
             WHERE s.teacher_id = ? AND s.id = ?
             GROUP BY u.id
             ORDER BY total_points DESC, u.points DESC

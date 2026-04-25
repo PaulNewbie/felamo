@@ -231,7 +231,7 @@ class AralinController extends db_connect
     {
         $q = $this->conn->prepare("
             SELECT antas.level, a.aralin_no, a.aralin_title AS title, da.completed_at
-            FROM `done_aralin` AS da
+            FROM `student_aralin_progress` AS da
             JOIN `aralin` AS a ON da.aralin_id = a.id
             JOIN `levels` AS antas ON a.level_id = antas.id
             WHERE da.user_id = ?
@@ -273,7 +273,7 @@ class AralinController extends db_connect
     public function GetWatchHistory($aralinId)
     {
         $q = $this->conn->prepare("
-        SELECT u.first_name, u.last_name, u.lrn, da.completed_at FROM `done_aralin` AS da
+        SELECT u.first_name, u.last_name, u.lrn, da.completed_at FROM `student_aralin_progress` AS da
         JOIN `aralin` AS a ON da.aralin_id = a.id
         JOIN `users` AS u ON da.user_id = u.id
         WHERE da.aralin_id = ?

@@ -28,10 +28,10 @@ class AssessmentTakesController extends db_connect
                 at.total,
                 a.assessment_title, 
                 COUNT(atl.id) AS total_attempts
-            FROM assessment_takes AS at 
+            FROM assessment_results AS at 
             JOIN assessments AS a ON at.assessment_id = a.id
             JOIN users AS u ON at.lrn = u.lrn
-            LEFT JOIN assessment_takes_log AS atl ON at.assessment_id = atl.assessment_id AND at.lrn = atl.lrn
+            LEFT JOIN assessment_attempt_logs AS atl ON at.assessment_id = atl.assessment_id AND at.lrn = atl.lrn
             WHERE a.level_id = ?
         ";
 

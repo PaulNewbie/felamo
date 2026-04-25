@@ -56,7 +56,7 @@ if ($is_admin === 'true') {
             COUNT(CASE WHEN at.points < (at.total * 0.5) THEN 1 END) AS failed
         FROM levels l
         LEFT JOIN assessments a ON a.level_id = l.id
-        LEFT JOIN assessment_takes at ON at.assessment_id = a.id
+        LEFT JOIN assessment_results at ON at.assessment_id = a.id
         WHERE l.level = $i AND l.teacher_id = $user_id";
         
         $res = $conn->query($sql);
