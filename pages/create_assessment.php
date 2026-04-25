@@ -243,14 +243,62 @@ if ($aralin_id) {
                     <i class="bi bi-file-earmark-spreadsheet-fill fs-4 me-2"></i> Bulk Upload via CSV
                 </h6>
                 <p class="small text-muted mb-4">
-                    Upload your 6-column CSV file here. If there are any errors in your file, the system will reject the whole file to prevent broken quizzes.
+                    Upload your 6-column CSV file. Click <strong>Preview</strong> first to validate your data,
+                    then <strong>Confirm Upload</strong> to insert.
                 </p>
-                
-                <div class="d-flex justify-content-center align-items-center gap-3">
-                    <input class="form-control form-control-sm custom-file-input w-50" type="file" id="bulk_csv_file" accept=".csv" title="Upload Questions CSV">
-                    <button type="button" class="btn btn-create-manual px-4" id="btn-upload-csv">
-                        <i class="bi bi-cloud-arrow-up-fill me-2"></i> Step 2: Upload CSV
+
+                <div class="d-flex justify-content-center align-items-center gap-3 mb-3">
+                    <input class="form-control form-control-sm custom-file-input w-50"
+                        type="file" id="bulk_csv_file" accept=".csv"
+                        title="Upload Questions CSV">
+                    <button type="button" class="btn btn-create-manual px-4" id="btn-preview-csv">
+                        <i class="bi bi-eye me-2"></i> Step 2: Preview CSV
                     </button>
+                </div>
+
+                <!-- Preview results panel (hidden until preview runs) -->
+                <div id="csv-preview-panel" class="d-none text-start mt-3">
+                    <div id="csv-preview-summary" class="alert mb-3"></div>
+
+                    <div id="csv-errors-block" class="d-none mb-3">
+                        <h6 class="text-danger fw-bold">
+                            <i class="bi bi-x-circle me-1"></i> Errors (must fix before uploading)
+                        </h6>
+                        <ul id="csv-errors-list" class="small text-danger mb-0"></ul>
+                    </div>
+
+                    <div id="csv-warnings-block" class="d-none mb-3">
+                        <h6 class="text-warning fw-bold">
+                            <i class="bi bi-exclamation-triangle me-1"></i> Warnings (rows skipped)
+                        </h6>
+                        <ul id="csv-warnings-list" class="small text-warning mb-0"></ul>
+                    </div>
+
+                    <div id="csv-valid-block" class="d-none">
+                        <h6 class="text-success fw-bold">
+                            <i class="bi bi-check-circle me-1"></i> Valid Rows Preview
+                        </h6>
+                        <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
+                            <table class="table table-sm table-bordered" id="csv-preview-table">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>#</th>
+                                        <th>Type</th>
+                                        <th>Difficulty</th>
+                                        <th>Question</th>
+                                        <th>Answer</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="csv-preview-tbody"></tbody>
+                            </table>
+                        </div>
+
+                        <button type="button" class="btn btn-success mt-3 w-100 fw-bold"
+                                id="btn-confirm-upload">
+                            <i class="bi bi-cloud-arrow-up-fill me-2"></i>
+                            Step 3: Confirm Upload (<span id="confirm-count">0</span> rows)
+                        </button>
+                    </div>
                 </div>
             </div>
 

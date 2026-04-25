@@ -451,41 +451,34 @@ function renderQuestions() {
 }
 
 // --- UNIFIED BULK CSV UPLOAD ---
-$(document).on("click", "#btn-upload-csv", function() {
+// ── STEP 2: Preview CSV (validate without inserting) ─────────────────────────
+$(document).on("click", "#btn-preview-csv", function () {
     const assessmentId = $("#hidden_assessment_id").val();
-    
+
     if (!assessmentId) {
         Swal.fire({
             icon: 'warning',
-            title: 'Database Record Missing',
-            text: 'You must click "Step 1: Save Details" first to generate a database record. Once saved, you can upload your CSV!'
+            title: 'Nag-iintay pa',
+            text: 'I-click muna ang "Step 1: Save Details" bago mag-upload ng CSV.',
         });
         return;
     }
 
     const fileInput = $("#bulk_csv_file")[0];
-    
-    if (fileInput.files.length === 0) {
-        Swal.fire({
-            icon: 'warning',
-            title: 'No File Selected',
-            text: 'Please select your CSV file first.'
-        });
+    if (!fileInput.files.length) {
+        Swal.fire({ icon: 'warning', title: 'Walang file', text: 'Pumili muna ng CSV file.' });
         return;
     }
 
-    const file = fileInput.files[0];
     const formData = new FormData();
-    formData.append("csv_file", file);
+    formData.append("csv_file", fileInput.files[0]);
     formData.append("assessment_id", assessmentId);
+    formData.append("preview", "1"); // <── preview mode flag
 
     Swal.fire({
-        title: 'Uploading Questions...',
-        text: 'Validating your CSV data. Please wait.',
+        title: 'Vina-validate ang CSV...',
         allowOutsideClick: false,
-        didOpen: () => {
-            Swal.showLoading();
-        }
+        didOpen: () => Swal.showLoading(),
     });
 
     $.ajax({
@@ -495,32 +488,144 @@ $(document).on("click", "#btn-upload-csv", function() {
         processData: false,
         contentType: false,
         dataType: 'json',
-        success: function(response) {
-            if (response.status === 200) {
+        success: function (res) {
+            Swal.close();
+            _renderPreview(res);
+        },
+        error: function (xhr) {
+            Swal.fire({ icon: 'error', title: 'Server Error', text: 'Check console for details.' });
+            console.error(xhr.responseText);
+        },
+    });
+});
+
+// Render preview panel
+function _renderPreview(res) {
+    const panel = $("#csv-preview-panel").removeClass("d-none");
+
+    // Summary badge
+    const hasErrors   = res.errors   && res.errors.length   > 0;
+    const hasWarnings = res.warnings && res.warnings.length > 0;
+    const hasValid    = res.valid    && res.valid.length    > 0;
+
+    const summaryClass = hasErrors ? 'alert-danger' : (hasValid ? 'alert-success' : 'alert-warning');
+    $("#csv-preview-summary")
+        .removeClass("alert-danger alert-success alert-warning")
+        .addClass(summaryClass)
+        .html(`<strong>${res.message}</strong>`);
+
+    // Errors
+    if (hasErrors) {
+        $("#csv-errors-block").removeClass("d-none");
+        const list = res.errors.map(e => `<li>${e}</li>`).join('');
+        $("#csv-errors-list").html(list);
+    } else {
+        $("#csv-errors-block").addClass("d-none");
+    }
+
+    // Warnings
+    if (hasWarnings) {
+        $("#csv-warnings-block").removeClass("d-none");
+        const list = res.warnings.map(w => `<li>${w}</li>`).join('');
+        $("#csv-warnings-list").html(list);
+    } else {
+        $("#csv-warnings-block").addClass("d-none");
+    }
+
+    // Valid rows table + confirm button
+    if (hasValid && !hasErrors) {
+        $("#csv-valid-block").removeClass("d-none");
+        $("#confirm-count").text(res.valid.length);
+
+        const rows = res.valid.map((q, i) => {
+            const typeBadge = {
+                multiple_choice: '<span class="badge bg-primary">MCQ</span>',
+                true_false:      '<span class="badge bg-success">T/F</span>',
+                identification:  '<span class="badge bg-info text-dark">Ident</span>',
+                jumbled_word:    '<span class="badge bg-warning text-dark">Jumbled</span>',
+            }[q.type] || q.type;
+
+            const diffBadge = {
+                easy:   '<span class="badge bg-success">Easy</span>',
+                medium: '<span class="badge bg-warning text-dark">Medium</span>',
+                hard:   '<span class="badge bg-danger">Hard</span>',
+            }[q.difficulty] || q.difficulty;
+
+            const shortQ = q.question_text.length > 60
+                ? q.question_text.substring(0, 60) + '…'
+                : q.question_text;
+
+            return `<tr>
+                <td>${i + 1}</td>
+                <td>${typeBadge}</td>
+                <td>${diffBadge}</td>
+                <td>${shortQ}</td>
+                <td>${q.correct_answer}</td>
+            </tr>`;
+        }).join('');
+
+        $("#csv-preview-tbody").html(rows);
+    } else {
+        $("#csv-valid-block").addClass("d-none");
+    }
+}
+
+// ── STEP 3: Confirm Upload (actual insert) ────────────────────────────────────
+$(document).on("click", "#btn-confirm-upload", function () {
+    const assessmentId = $("#hidden_assessment_id").val();
+    const fileInput    = $("#bulk_csv_file")[0];
+
+    if (!fileInput.files.length) {
+        Swal.fire({ icon: 'error', title: 'Error', text: 'File was lost — please re-select it.' });
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append("csv_file", fileInput.files[0]);
+    formData.append("assessment_id", assessmentId);
+    // No preview flag = real insert
+
+    Swal.fire({
+        title: 'Ina-upload ang mga tanong...',
+        allowOutsideClick: false,
+        didOpen: () => Swal.showLoading(),
+    });
+
+    $.ajax({
+        url: '../backend/api/web/upload-questions.php',
+        type: 'POST',
+        data: formData,
+        processData: false,
+        contentType: false,
+        dataType: 'json',
+        success: function (res) {
+            if (res.status === 200) {
                 Swal.fire({
                     icon: 'success',
-                    title: 'Upload Successful!',
-                    text: response.message
+                    title: 'Matagumpay!',
+                    text: res.message,
                 }).then(() => {
-                    $("#bulk_csv_file").val(''); 
-                    questionsList = []; 
-                    fetchQuestionsByType(assessmentId); 
+                    // Reset UI
+                    $("#bulk_csv_file").val('');
+                    $("#csv-preview-panel").addClass("d-none");
+                    questionsList = [];
+                    fetchQuestionsByType(assessmentId);
                 });
             } else {
                 Swal.fire({
                     icon: 'error',
-                    title: 'Upload Failed',
-                    text: response.message 
+                    title: 'Hindi na-upload',
+                    html: res.message + (res.errors
+                        ? '<ul class="text-start small mt-2">'
+                            + res.errors.map(e => `<li>${e}</li>`).join('')
+                            + '</ul>'
+                        : ''),
                 });
             }
         },
-        error: function(xhr) {
-            Swal.fire({
-                icon: 'error',
-                title: 'Server Error',
-                text: 'An unexpected error occurred. Check the console.'
-            });
+        error: function (xhr) {
+            Swal.fire({ icon: 'error', title: 'Server Error', text: 'Check console.' });
             console.error(xhr.responseText);
-        }
+        },
     });
 });
