@@ -123,9 +123,8 @@ foreach ($all_answers as $item) {
     $correct = trim($q['correct_answer']);
 
     if ($q['type'] === 'multiple_choice') {
-        $choices       = json_decode($q['choices'], true) ?? [];
-        $selected_text = $choices[strtoupper($user_answer)] ?? '';
-        if (strtolower($selected_text) === strtolower($correct)) {
+        // Both $user_answer and $correct are just letters (A, B, C, D)
+        if (strtoupper($user_answer) === strtoupper($correct)) {
             $score++;
         }
     } elseif ($q['type'] === 'true_false') {
