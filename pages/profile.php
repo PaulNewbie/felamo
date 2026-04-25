@@ -313,12 +313,13 @@ $currentUserId = isset($user['id']) ? $user['id'] : (isset($auth_user_id) ? $aut
             // NO LOADING SCREEN ON BUTTON.
             
             const userId = $("#hidden_user_id").val();
-            const name = $("#name").val().trim();
+            const first_name = $("#first_name").val().trim();
+            const last_name  = $("#last_name").val().trim();
             const email = $("#email").val().trim();
             const p1 = $("#newPassword").val();
             const p2 = $("#newPassword2").val();
 
-            if(name === "" || email === "") {
+            if (first_name === "" || last_name === "" || email === "") {
                 Swal.fire('Error', 'Name and Email are required.', 'error');
                 return;
             }
@@ -331,7 +332,8 @@ $currentUserId = isset($user['id']) ? $user['id'] : (isset($auth_user_id) ? $aut
             let dataToSend = {
                 requestType: 'EditUser',
                 auth_user_id: userId,
-                name: name,
+                first_name: first_name,
+                last_name:  last_name,
                 email: email,
                 newPassword: p1
             };

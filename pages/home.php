@@ -155,6 +155,31 @@ $isSuperAdmin = $user['role'] === 'super_admin';
                 <div class="col-md-6"><div class="stats-card"><div class="stats-header">Total Students</div><div class="stats-body"><div class="stats-label">Number Assigned Students</div><div class="stats-count" id="dashboard-my-student-count">0</div></div></div></div>
             </div>
             <div class="card mt-4 p-3 shadow-sm border-0"><canvas id="passed-failed-student-chart" style="max-height: 400px;"></canvas></div>
+            <!-- NEW ROW — Email & Contact Stats -->
+            <div class="row g-4 mt-2">
+                <div class="col-md-6">
+                    <div class="stats-card">
+                        <div class="stats-header">Students with Email</div>
+                        <div class="stats-body">
+                            <div class="stats-label">Of Your Assigned Students</div>
+                            <div class="stats-count" id="dashboard-email-count">0</div>
+                            <small class="text-muted mt-1" id="dashboard-email-percent"
+                                style="font-size: 0.85rem;"></small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="stats-card">
+                        <div class="stats-header">Students with Contact No.</div>
+                        <div class="stats-body">
+                            <div class="stats-label">Of Your Assigned Students</div>
+                            <div class="stats-count" id="dashboard-contact-count">0</div>
+                            <small class="text-muted mt-1" id="dashboard-contact-percent"
+                                style="font-size: 0.85rem;"></small>
+                        </div>
+                    </div>
+                </div>
+            </div>
         <?php } ?>
 
         <?php if ($user['role'] == "super_admin") { ?>
@@ -169,6 +194,32 @@ $isSuperAdmin = $user['role'] === 'super_admin';
                 <div class="col-md-6"><div class="stats-card"><div class="stats-header">Total Web Users</div><div class="stats-body"><div class="stats-label">Number of Registered Users</div><div class="stats-count" id="dashboard-total-web-users-count">0</div></div></div></div>
             </div>
             <div class="card mt-4 p-3 shadow-sm border-0"><h5 class="mb-3 text-main fw-bold" style="color: #880f0b;">Uploaded Videos Analytics</h5><canvas id="videos-uploaded-chart" style="max-height: 400px;"></canvas></div>
+        
+            <!-- NEW ROW — Email & Contact Stats -->
+            <div class="row g-4 mt-2">
+                <div class="col-md-6">
+                    <div class="stats-card">
+                        <div class="stats-header">Students with Email</div>
+                        <div class="stats-body">
+                            <div class="stats-label">Registered Email Addresses</div>
+                            <div class="stats-count" id="dashboard-email-count">0</div>
+                            <small class="text-muted mt-1" id="dashboard-email-percent" 
+                                style="font-size: 0.85rem;"></small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="stats-card">
+                        <div class="stats-header">Students with Contact No.</div>
+                        <div class="stats-body">
+                            <div class="stats-label">Registered Contact Numbers</div>
+                            <div class="stats-count" id="dashboard-contact-count">0</div>
+                            <small class="text-muted mt-1" id="dashboard-contact-percent"
+                                style="font-size: 0.85rem;"></small>
+                        </div>
+                    </div>
+                </div>
+            </div>
         <?php } ?>
     </main>
 </div>
@@ -218,7 +269,7 @@ $isSuperAdmin = $user['role'] === 'super_admin';
                         
                         // === SUPER ADMIN DASHBOARD ===
                         if (is_super_admin == "true") {
-                             $("#unang-markahan-videos-uploaded-count").text(res.data.vid_uploaded_count[0]?.video_count || 0);
+                            $("#unang-markahan-videos-uploaded-count").text(res.data.vid_uploaded_count[0]?.video_count || 0);
                             $("#pangalawang-markahan-videos-uploaded-count").text(res.data.vid_uploaded_count[1]?.video_count || 0);
                             $("#pangatlong-markahan-videos-uploaded-count").text(res.data.vid_uploaded_count[2]?.video_count || 0);
                             $("#ika-apat-na-markahan-videos-uploaded-count").text(res.data.vid_uploaded_count[3]?.video_count || 0);
@@ -242,6 +293,26 @@ $isSuperAdmin = $user['role'] === 'super_admin';
                                     }] 
                                 } 
                             });
+                            // Email stats
+                            if (res.data.email_stats) {
+                                const stats   = res.data.email_stats;
+                                const total   = parseInt(stats.total_students) || 0;
+                                const withEmail   = parseInt(stats.with_email)   || 0;
+                                const withContact = parseInt(stats.with_contact) || 0;
+
+                                const emailPct   = total > 0 ? Math.round((withEmail   / total) * 100) : 0;
+                                const contactPct = total > 0 ? Math.round((withContact / total) * 100) : 0;
+
+                                $("#dashboard-email-count").text(withEmail);
+                                $("#dashboard-email-percent").text(
+                                    emailPct + "% of " + total + " students"
+                                );
+
+                                $("#dashboard-contact-count").text(withContact);
+                                $("#dashboard-contact-percent").text(
+                                    contactPct + "% of " + total + " students"
+                                );
+                            }
 
                         // === TEACHER DASHBOARD ===
                         } else {
@@ -330,6 +401,26 @@ $isSuperAdmin = $user['role'] === 'super_admin';
                                         }
                                     }
                                 });
+                            }
+                            // Email stats (same code works for teacher since backend scopes by teacher_id)
+                            if (res.data.email_stats) {
+                                const stats   = res.data.email_stats;
+                                const total   = parseInt(stats.total_students) || 0;
+                                const withEmail   = parseInt(stats.with_email)   || 0;
+                                const withContact = parseInt(stats.with_contact) || 0;
+
+                                const emailPct   = total > 0 ? Math.round((withEmail   / total) * 100) : 0;
+                                const contactPct = total > 0 ? Math.round((withContact / total) * 100) : 0;
+
+                                $("#dashboard-email-count").text(withEmail);
+                                $("#dashboard-email-percent").text(
+                                    emailPct + "% of " + total + " students"
+                                );
+
+                                $("#dashboard-contact-count").text(withContact);
+                                $("#dashboard-contact-percent").text(
+                                    contactPct + "% of " + total + " students"
+                                );
                             }
                         }
                     } catch(e) { console.error("Parse Error", e); }

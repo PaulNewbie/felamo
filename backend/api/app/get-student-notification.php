@@ -77,13 +77,21 @@ if (!$user_data || empty($user_data['lrn'])) {
 
 $user_lrn = $user_data['lrn'];
 
+// NEW — deduplicated, capped at 50
 $stmt = $conn->prepare("
-    SELECT n.*
+    SELECT 
+        MAX(n.id)          AS id,
+        n.title,
+        n.description,
+        MAX(n.created_at)  AS created_at,
+        n.section_id
     FROM student_teacher_assignments AS sta
-    JOIN sections AS s ON sta.section_id = s.id
+    JOIN sections     AS s ON sta.section_id = s.id
     JOIN notifications AS n ON s.id = n.section_id
     WHERE sta.student_lrn = ?
-    ORDER BY n.created_at DESC
+    GROUP BY n.title, n.description, n.section_id
+    ORDER BY MAX(n.created_at) DESC
+    LIMIT 50
 ");
 
 if (!$stmt) {

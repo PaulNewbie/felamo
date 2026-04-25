@@ -151,40 +151,62 @@ class AuthController extends db_connect
     }
 
     // --- FIX 2: UPDATE USER DETAILS ---
-    public function UpdateUser($id, $name, $email, $newPassword)
+    public function UpdateUser($id, $first_name, $last_name, $email, $newPassword)
     {
-        ob_clean(); // 1. Clean garbage output
+        ob_clean();
 
         if (!$this->conn) {
             echo json_encode(['status' => 'error', 'message' => 'Database connection failed.']);
             return;
         }
 
-        $hashedPassword = null;
-        if (!empty($newPassword)) {
-            $hashedPassword = password_hash($newPassword, PASSWORD_DEFAULT);
+        // 1. Format validation
+        if (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            echo json_encode(['status' => 'error', 'message' => 'Invalid email format.']);
+            return;
         }
 
-        if ($hashedPassword) {
-            $stmt = $this->conn->prepare("UPDATE web_users SET name = ?, email = ?, password = ? WHERE id = ?");
-            $stmt->bind_param("sssi", $first_name, $last_name, $email, $hashedPassword, $id);
+        // 2. Check if email is already taken by ANOTHER user
+        $checkEmail = $this->conn->prepare(
+            "SELECT id FROM web_users WHERE email = ? AND id != ? LIMIT 1"
+        );
+        $checkEmail->bind_param("si", $email, $id);
+        $checkEmail->execute();
+        $checkEmail->store_result();
+        if ($checkEmail->num_rows > 0) {
+            echo json_encode([
+                'status' => 'error',
+                'message' => 'That email is already used by another account.'
+            ]);
+            return;
+        }
+        $checkEmail->close();
+
+        // 3. Build update query
+        if (!empty($newPassword)) {
+            $hashedPassword = password_hash($newPassword, PASSWORD_DEFAULT);
+            $stmt = $this->conn->prepare(
+                "UPDATE web_users SET first_name = ?, last_name = ?, email = ?, password = ? WHERE id = ?"
+            );
+            $stmt->bind_param("ssssi", $first_name, $last_name, $email, $hashedPassword, $id);
         } else {
-            $stmt = $this->conn->prepare("UPDATE web_users SET name = ?, email = ? WHERE id = ?");
-            $stmt->bind_param("ssi", $first_name, $last_name, $email, $id);
+            $stmt = $this->conn->prepare(
+                "UPDATE web_users SET first_name = ?, last_name = ?, email = ? WHERE id = ?"
+            );
+            $stmt->bind_param("sssi", $first_name, $last_name, $email, $id);
         }
 
         if (!$stmt) {
-            echo json_encode(['status' => 'error', 'message' => 'Query Prepare failed.']);
+            echo json_encode(['status' => 'error', 'message' => 'Query prepare failed.']);
             return;
         }
 
         if ($stmt->execute()) {
-            ob_clean(); // 2. Clean again before success
+            ob_clean();
             echo json_encode(['status' => 'success', 'message' => 'User updated successfully.']);
         } else {
             ob_clean();
-            // Usually duplicate email error
-            echo json_encode(['status' => 'error', 'message' => 'Email might be taken or Database Error.']);
+            echo json_encode(['status' => 'error', 'message' => 'Update failed: ' . $stmt->error]);
         }
         $stmt->close();
     }

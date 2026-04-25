@@ -58,48 +58,66 @@ $(document).ready(function () {
     console.log(notifSectionId);
   });
 
-  $("#notificationForm").on("submit", function (e) {
-    e.preventDefault();
+    $("#notificationForm").on("submit", function (e) {
+      e.preventDefault();
 
-    let section_id = notifSectionId;
-    let title = $("#notifTitle").val();
-    let description = $("#notifDescription").val();
+      let section_id  = notifSectionId;
+      let title       = $("#notifTitle").val();
+      let description = $("#notifDescription").val();
 
-    $.ajax({
-      type: "POST",
-      url: "../backend/api/web/notifications.php",
-      data: {
-        requestType: "CreateNotification",
-        title,
-        description,
-        auth_user_id,
-        section_id,
-      },
-      success: function (response) {
-        try {
-          let res =
-            typeof response === "string" ? JSON.parse(response) : response;
+      // --- ADD: basic client-side guard ---
+      if (!section_id) {
+          showAlert("alert-warning", "Please select a section first.");
+          return;
+      }
+      if (!title || !description) {
+          showAlert("alert-warning", "Title and description are required.");
+          return;
+      }
+      // --- END guard ---
 
-          if (res.status === "success") {
-            showAlert("alert-success", res.message);
-            loadNotifs();
+      $.ajax({
+          type: "POST",
+          url: "../backend/api/web/notifications.php",
+          data: {
+              requestType: "CreateNotification",
+              title,
+              description,
+              auth_user_id,
+              section_id,
+          },
+          success: function (response) {
+              try {
+                  let res = typeof response === "string"
+                      ? JSON.parse(response)
+                      : response;
 
-            $("#notificationModal").modal("hide");
-            $("#notificationForm")[0].reset();
-          } else {
-            showAlert("alert-danger", "Insert failed: " + res.message);
-          }
-        } catch (err) {
-          console.error("Invalid response:", response);
-          showAlert("alert-danger", "Unexpected error occurred.");
-        }
-      },
-      error: function (xhr, status, error) {
-        console.error(xhr.responseText);
-        showAlert("alert-danger", "Request failed.");
-      },
-    });
+                  if (res.status === "success") {
+                      showAlert("alert-success", res.message);
+                      loadNotifs();
+                      $("#notificationModal").modal("hide");
+                      $("#notificationForm")[0].reset();
+                      notifSectionId = null; // reset selected section
+
+                  // --- ADD: handle duplicate ---
+                  } else if (res.status === "duplicate") {
+                      showAlert("alert-warning", res.message);
+                      // keep modal open so teacher can edit if they want
+                  // --- END ---
+
+                  } else {
+                      showAlert("alert-danger", "Insert failed: " + res.message);
+                  }
+              } catch (err) {
+                  console.error("Invalid response:", response);
+                  showAlert("alert-danger", "Unexpected error occurred.");
+              }
+          },
+          error: function (xhr) {
+              console.error(xhr.responseText);
+              showAlert("alert-danger", "Request failed.");
+          },
+      });
   });
-
   loadNotifs();
 });

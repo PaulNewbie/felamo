@@ -19,7 +19,18 @@ class HomeController extends db_connect
     }
 
     public function LoadDashboard()
-    {
+    {   
+        // Email & contact stats across all students
+        $emailStmt = $this->conn->prepare("
+            SELECT 
+                COUNT(*)                                              AS total_students,
+                SUM(CASE WHEN email != ''    THEN 1 ELSE 0 END)      AS with_email,
+                SUM(CASE WHEN contact_no != '' THEN 1 ELSE 0 END)    AS with_contact
+            FROM users
+            WHERE is_active = 1
+        ");
+        $emailStmt->execute();
+        $emailStats = $emailStmt->get_result()->fetch_assoc();
 
         // video uploaded per level
         $vidUploadedCountStmt = $this->conn->prepare("
@@ -63,7 +74,8 @@ class HomeController extends db_connect
             'data' => [
                 "vid_uploaded_count" => $vidUploadedCountArray,
                 "users_count" => $registeredUsersCount,
-                "web_users_count" => $registeredWebUsersCount
+                "web_users_count" => $registeredWebUsersCount,
+                "email_stats" => $emailStats,
             ]
         ]);
     }
@@ -71,6 +83,22 @@ class HomeController extends db_connect
 
     public function LoadTeacherDashboard($id)
     {
+    // Email & contact stats for THIS teacher's students only
+    $emailStmt = $this->conn->prepare("
+        SELECT 
+            COUNT(*)                                              AS total_students,
+            SUM(CASE WHEN u.email != ''     THEN 1 ELSE 0 END)   AS with_email,
+            SUM(CASE WHEN u.contact_no != '' THEN 1 ELSE 0 END)  AS with_contact
+        FROM student_teacher_assignments AS sta
+        JOIN sections AS s  ON sta.section_id = s.id
+        JOIN users    AS u  ON sta.student_lrn = u.lrn
+        WHERE s.teacher_id = ?
+        AND u.is_active  = 1
+    ");
+    $emailStmt->bind_param("i", $id);
+    $emailStmt->execute();
+    $emailStats = $emailStmt->get_result()->fetch_assoc();
+
         $statsSql = "
     SELECT 
         s.teacher_id,
@@ -219,7 +247,8 @@ ORDER BY level ASC
                 "level_stats" => $levelStats,
                 "completed_stats" => $completedStats,
                 "section_count" => $SECTION_COUNT,
-                "total_students" => $TOTAL_STUDENT_COUNT
+                "total_students" => $TOTAL_STUDENT_COUNT,
+                "email_stats"      => $emailStats, 
             ]
         ]);
     }
