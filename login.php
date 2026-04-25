@@ -108,9 +108,12 @@ include("header.php");
             <input type="email" id="email" class="form-control" placeholder="Email address" required>
         </div>
 
-        <div class="input-group mb-3">
+        <div class="input-group mb-3 position-relative">
             <span class="input-group-text"><i class="bi bi-lock"></i></span>
-            <input type="password" id="password" class="form-control" placeholder="Password" required>
+            <input type="password" id="password" class="form-control" placeholder="Password">
+            <button class="btn btn-outline-secondary" type="button" id="togglePwd">
+                <i class="bi bi-eye" id="eyeIcon"></i>
+            </button>
         </div>
 
         <div class="d-flex justify-content-between align-items-center mb-3">
@@ -123,8 +126,17 @@ include("header.php");
     </form>
 
     <img src="assets/img/logo (1).png" style="margin-top: 30px; alt="Logo" class="side-logo">
-
 </div>
+
+<script>
+  document.getElementById('togglePwd').addEventListener('click', () => {
+    const pwd = document.getElementById('password');
+    const icon = document.getElementById('eyeIcon');
+    const isHidden = pwd.type === 'password';
+    pwd.type = isHidden ? 'text' : 'password';
+    icon.className = isHidden ? 'bi bi-eye-slash' : 'bi bi-eye';
+  });
+</script>
 
 <?php
 include("footer.php");
