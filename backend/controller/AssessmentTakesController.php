@@ -16,7 +16,7 @@ class AssessmentTakesController extends db_connect
 
     public function GetTakenAssessments($level_id, $filter)
     {
-        // FIX 2: Removed 'GROUP BY' from the base string so we can append WHERE clauses first
+        // Force collation match on the atl.lrn join condition to fix the illegal mix error
         $sql = "
             SELECT 
                 at.lrn, 
@@ -30,19 +30,18 @@ class AssessmentTakesController extends db_connect
                 COUNT(atl.id) AS total_attempts
             FROM assessment_results AS at 
             JOIN assessments AS a ON at.assessment_id = a.id
+            JOIN aralin AS ar ON a.aralin_id = ar.id
             JOIN users AS u ON at.lrn = u.lrn
-            LEFT JOIN assessment_attempt_logs AS atl ON at.assessment_id = atl.assessment_id AND at.lrn = atl.lrn
-            WHERE a.level_id = ?
+            LEFT JOIN assessment_attempt_logs AS atl ON at.assessment_id = atl.assessment_id AND at.lrn = atl.lrn COLLATE utf8mb4_general_ci
+            WHERE ar.level_id = ?
         ";
 
-        // FIX 3: Append conditions BEFORE the GROUP BY clause
         if ($filter === "PASSED") {
             $sql .= " AND at.points >= (at.total * 0.5)";
         } elseif ($filter === "FAILED") {
             $sql .= " AND at.points < (at.total * 0.5)";
         }
 
-        // FIX 4: Append GROUP BY at the very end
         $sql .= " GROUP BY at.lrn, at.assessment_id";
 
         $q = $this->conn->prepare($sql);
@@ -62,7 +61,6 @@ class AssessmentTakesController extends db_connect
             $taken_assessments = [];
 
             while ($row = $result->fetch_assoc()) {
-                // Combine names for easier frontend display
                 $row['student_name'] = $row['first_name'] . ' ' . $row['last_name'];
                 $taken_assessments[] = $row;
             }
