@@ -145,24 +145,28 @@ while ($q = $result->fetch_assoc()) {
             'choice_c'       => $choices['C'] ?? '',
             'choice_d'       => $choices['D'] ?? '',
             'correct_answer' => $q['correct_answer'],
+            'difficulty'     => $q['difficulty'], // Add this line
         ];
     } elseif ($q['type'] === 'true_false') {
         $flutter_data['true_or_false'][] = [
-            'id'       => $q['id'],
-            'question' => $q['question_text'],
-            'answer'   => in_array(strtolower(trim($q['correct_answer'])), ['true', '1', 'tama']) ? 1 : 0,
+            'id'         => $q['id'],
+            'question'   => $q['question_text'],
+            'answer'     => in_array(strtolower(trim($q['correct_answer'])), ['true', '1', 'tama']) ? 1 : 0,
+            'difficulty' => $q['difficulty'], // Add this line
         ];
     } elseif ($q['type'] === 'identification') {
         $flutter_data['identification'][] = [
-            'id'       => $q['id'],
-            'question' => $q['question_text'],
-            'answer'   => $q['correct_answer'],
+            'id'         => $q['id'],
+            'question'   => $q['question_text'],
+            'answer'     => $q['correct_answer'],
+            'difficulty' => $q['difficulty'], // Add this line
         ];
     } elseif ($q['type'] === 'jumbled_word' || $q['type'] === 'jumbled_words') {
         $flutter_data['jumbled_words'][] = [
-            'id'       => $q['id'],
-            'question' => $q['question_text'],
-            'answer'   => $q['correct_answer'],
+            'id'         => $q['id'],
+            'question'   => $q['question_text'],
+            'answer'     => $q['correct_answer'],
+            'difficulty' => $q['difficulty'], // Add this line
         ];
     }
 }

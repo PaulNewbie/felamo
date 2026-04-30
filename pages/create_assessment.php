@@ -18,6 +18,7 @@ if ($aralin_id) {
                 // Fetch the actual aralin_no from the database row
                 // (Assuming your column is named 'aralin_no'. Change it if it is named something else)
                 $aralin_no = isset($aralin['aralin_no']) ? $aralin['aralin_no'] : "?"; 
+                $level_id = isset($aralin['level_id']) ? $aralin['level_id'] : "";
                 
             } else {
                 echo "<script>window.location.href='levels.php';</script>";
@@ -174,7 +175,7 @@ if ($aralin_id) {
         <div class="page-header-banner">
     
             <div class="header-left" style="display: flex; align-items: center; gap: 15px;">
-                <a href="levels.php" class="btn-back-text">
+                <a href="level_details.php?level=<?= htmlspecialchars($level_id) ?>" class="btn-back-text">
                     BACK
                 </a>
                 <h4 class="m-0 fw-bold text-uppercase">
@@ -303,7 +304,7 @@ if ($aralin_id) {
             </div>
 
             <div class="d-flex justify-content-end pb-5 border-top pt-4">
-                <a href="levels.php" class="btn btn-light me-2 border py-2 px-4">Cancel</a>
+                <a href="level_details.php?level=<?= htmlspecialchars($level_id) ?>" class="btn btn-light me-2 border py-2 px-4">Cancel</a>
                 <button type="submit" class="btn btn-submit shadow px-4">
                     <i class="bi bi-check-circle me-2"></i> Step 1: Save Details
                 </button>
