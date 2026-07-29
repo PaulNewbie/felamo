@@ -112,7 +112,7 @@ function resolveDisplayAnswer($type, $studentAnswer, $choicesDecoded) {
                : $studentAnswer;
     }
     if ($type === 'true_false') {
-        return $studentAnswer == '1' || strtolower($studentAnswer) === 'true' ? 'True (Tama)' : 'False (Mali)';
+        return $studentAnswer == '1' || strtolower($studentAnswer) === 'true' ? 'Fact (Tama)' : 'Bluff (Mali)';
     }
     return $studentAnswer;
 }
@@ -125,7 +125,7 @@ function resolveCorrectDisplay($type, $correctAnswer, $choicesDecoded) {
                : $correctAnswer;
     }
     if ($type === 'true_false') {
-        return (in_array(strtolower($correctAnswer), ['true', '1', 'tama'])) ? 'True (Tama)' : 'False (Mali)';
+        return (in_array(strtolower($correctAnswer), ['true', '1', 'tama'])) ? 'Fact (Tama)' : 'Bluff (Mali)';
     }
     return $correctAnswer;
 }
@@ -141,7 +141,7 @@ function isCorrect($type, $studentAnswer, $correctAnswer) {
 
 $typeLabels = [
     'multiple_choice' => 'Multiple Choice',
-    'true_false'      => 'True or False',
+    'true_false'      => 'Fact or Bluff',
     'identification'  => 'Identification',
     'jumbled_word'    => 'Jumbled Word',
 ];

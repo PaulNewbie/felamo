@@ -215,7 +215,7 @@ if ($aralin_id) {
                         <select id="question-filter" class="form-select form-select-sm border-secondary" style="width: 150px;">
                             <option value="ALL">All Types</option>
                             <option value="MCQ">Multiple Choice</option>
-                            <option value="TF">True or False</option>
+                            <option value="TF">Fact or Bluff</option>
                             <option value="IDENT">Identification</option>
                             <option value="JUMBLED">Jumbled Words</option>
                         </select>
@@ -361,7 +361,7 @@ if ($aralin_id) {
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content border-0 shadow">
       <div class="modal-header modal-header-custom">
-        <h5 class="modal-title"><i class="bi bi-toggle-on me-2"></i> True or False</h5>
+        <h5 class="modal-title"><i class="bi bi-toggle-on me-2"></i> Fact or Bluff</h5>
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body p-4">
@@ -373,13 +373,13 @@ if ($aralin_id) {
             <label class="form-label text-secondary fw-bold text-uppercase fs-7 mb-2">Correct Answer</label>
             <div class="choice-item" onclick="selectRadio('True')">
                 <input class="form-check-input choice-radio" type="radio" name="tf_correct" value="True" id="radioTrue">
-                <span class="choice-letter text-success">T</span>
-                <span class="fw-bold text-secondary">True</span>
+                <span class="choice-letter text-success">F</span>
+                <span class="fw-bold text-secondary">Fact</span>
             </div>
             <div class="choice-item" onclick="selectRadio('False')">
                 <input class="form-check-input choice-radio" type="radio" name="tf_correct" value="False" id="radioFalse">
-                <span class="choice-letter text-danger">F</span>
-                <span class="fw-bold text-secondary">False</span>
+                <span class="choice-letter text-danger">B</span>
+                <span class="fw-bold text-secondary">Bluff</span>
             </div>
         </form>
       </div>

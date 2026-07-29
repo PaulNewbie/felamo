@@ -271,7 +271,7 @@ body             { background-color: #f4f6f9; overflow-x: hidden; }
                 <select id="filter-type" class="form-select form-select-sm">
                     <option value="all">All Types</option>
                     <option value="multiple_choice">Multiple Choice</option>
-                    <option value="true_false">True or False</option>
+                    <option value="true_false">Fact or Bluff</option>
                     <option value="identification">Identification</option>
                     <option value="jumbled_word">Jumbled Word</option>
                 </select>
@@ -337,7 +337,7 @@ $(document).ready(function () {
     const typeBadge = (type) => {
         const map = {
             multiple_choice : ['MCQ',    'type-mcq'],
-            true_false      : ['T / F',  'type-tf'],
+            true_false      : ['Fact / Bluff',  'type-tf'],
             identification  : ['Ident',  'type-ident'],
             jumbled_word    : ['Jumble', 'type-jumble'],
         };
@@ -390,11 +390,11 @@ $(document).ready(function () {
                 <div class="choices-grid">
                     <span class="choice-pill ${isTama  ? 'is-correct' : ''}">
                         ${isTama  ? '<i class="bi bi-check-circle-fill me-1"></i>' : ''}
-                        True (Tama)
+                        Fact (Tama)
                     </span>
                     <span class="choice-pill ${!isTama ? 'is-correct' : ''}">
                         ${!isTama ? '<i class="bi bi-check-circle-fill me-1"></i>' : ''}
-                        False (Mali)
+                        Bluff (Mali)
                     </span>
                 </div>`;
         } else {

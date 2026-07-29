@@ -41,9 +41,16 @@ if (!$handle) {
 // ── Constants ─────────────────────────────────────────────────────────────────
 $ALLOWED_TYPES        = ['multiple_choice', 'true_false', 'identification', 'jumbled_word'];
 $ALLOWED_DIFFICULTIES = ['easy', 'medium', 'hard'];
-$ALLOWED_TF_ANSWERS   = ['true', 'false', '1', '0', 'tama', 'mali'];
+$ALLOWED_TF_ANSWERS   = ['fact','bluff','true', 'false', '1', '0', 'tama', 'mali'];
 $VALID_MCQ_KEYS       = ['A', 'B', 'C', 'D'];
 $MIN_QUESTION_LENGTH  = 10;
+
+$TYPE_ALIASES = [
+    'fact_bluff'    => 'true_false',
+    'fact_or_bluff' => 'true_false',
+    'true_false'    => 'true_false',  // optional no-op, but explicit
+    'tf'            => 'true_false',
+];
 
 // ── Preview mode? ─────────────────────────────────────────────────────────────
 // If ?preview=1, parse and validate but do NOT insert. Returns parsed rows.
@@ -90,6 +97,10 @@ while (($row = fgetcsv($handle)) !== false) {
     $question_text    = trim($row[3]);
     $correct_answer   = trim($row[4]);
     $raw_choices      = isset($row[5]) ? trim($row[5]) : '';
+
+    if (isset($TYPE_ALIASES[$type])) {
+        $type = $TYPE_ALIASES[$type];
+    }
 
     $rowErrors = [];
 

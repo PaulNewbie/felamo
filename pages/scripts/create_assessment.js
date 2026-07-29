@@ -412,27 +412,44 @@ function renderQuestions() {
             
             // Difficulty Badge colors
             let diffBadgeClass = q.difficulty === 'hard' ? 'bg-danger' : (q.difficulty === 'medium' ? 'bg-warning text-dark' : 'bg-success');
-            
-            let displayType = q.type.replace('_', ' '); 
-            
-            let html = `
-                <div class="col-lg-4 col-md-6 col-12">
-                    <div class="added-question-item">
-                        <div class="position-absolute" style="top: 10px; right: 10px;">
-                            <button type="button" class="btn btn-sm btn-light text-warning shadow-sm border me-1" onclick="editQuestion(${index})" title="Edit Question">
-                                <i class="bi bi-pencil-square"></i>
-                            </button>
-                            <button type="button" class="btn btn-sm btn-light text-danger shadow-sm border" onclick="removeQuestion(${index})" title="Remove Question">
-                                <i class="bi bi-trash-fill"></i>
-                            </button>
-                        </div>
-                        <span class="badge ${badgeClass} mb-2 me-1">${displayType}</span>
-                        <span class="badge ${diffBadgeClass} mb-2">${(q.difficulty || 'easy').toUpperCase()}</span>
-                        <p class="mb-1 fw-bold pe-5">${q.question}</p>
-                        <small class="text-muted">Answer: ${q.correct}</small>
+
+            const typeDisplayNames = {
+                MULTIPLE_CHOICE: 'Multiple Choice', MCQ: 'Multiple Choice',
+                TRUE_FALSE: 'Fact or Bluff', TF: 'Fact or Bluff',
+                IDENTIFICATION: 'Identification', IDENT: 'Identification',
+                JUMBLED_WORD: 'Jumbled Word', JUMBLED: 'Jumbled Word',
+            };
+        let displayType = typeDisplayNames[q.type] || q.type; 
+
+        // NEW: resolve the answer text for display
+        let displayAnswer = q.correct;
+        if (q.type === 'TRUE_FALSE' || q.type === 'TF') {
+            const answerLower = (q.correct || '').toString().toLowerCase().trim();
+            if (['true', '1', 'tama', 'fact'].includes(answerLower)) {
+                displayAnswer = 'Fact';
+            } else if (['false', '0', 'mali', 'bluff'].includes(answerLower)) {
+                displayAnswer = 'Bluff';
+            }
+        }
+
+        let html = `
+            <div class="col-lg-4 col-md-6 col-12">
+                <div class="added-question-item">
+                    <div class="position-absolute" style="top: 10px; right: 10px;">
+                        <button type="button" class="btn btn-sm btn-light text-warning shadow-sm border me-1" onclick="editQuestion(${index})" title="Edit Question">
+                            <i class="bi bi-pencil-square"></i>
+                        </button>
+                        <button type="button" class="btn btn-sm btn-light text-danger shadow-sm border" onclick="removeQuestion(${index})" title="Remove Question">
+                            <i class="bi bi-trash-fill"></i>
+                        </button>
                     </div>
+                    <span class="badge ${badgeClass} mb-2 me-1">${displayType}</span>
+                    <span class="badge ${diffBadgeClass} mb-2">${(q.difficulty || 'easy').toUpperCase()}</span>
+                    <p class="mb-1 fw-bold pe-5">${q.question}</p>
+                    <small class="text-muted">Answer: ${displayAnswer}</small>
                 </div>
-            `;
+            </div>
+        `;
             container.append(html);
         });
 
@@ -540,7 +557,7 @@ function _renderPreview(res) {
         const rows = res.valid.map((q, i) => {
             const typeBadge = {
                 multiple_choice: '<span class="badge bg-primary">MCQ</span>',
-                true_false:      '<span class="badge bg-success">T/F</span>',
+                true_false:      '<span class="badge bg-success">F/B</span>',
                 identification:  '<span class="badge bg-info text-dark">Ident</span>',
                 jumbled_word:    '<span class="badge bg-warning text-dark">Jumbled</span>',
             }[q.type] || q.type;
