@@ -81,8 +81,11 @@ class StudentsController extends db_connect
     {
         // 0. Validate LRN format — must be exactly 12 digits
         $lrn = trim($lrn);
+        if (preg_match('/^\d(\.\d+)?E\+\d+$/i', $lrn)) {
+            return ['status' => 'error', 'message' => 'LRN was corrupted into scientific notation by Excel. Format the LRN column as Text before entering it, then try again.'];
+        }
         if (empty($lrn) || !preg_match('/^\d{12}$/', $lrn)) {
-            return ['status' => 'error', 'message' => 'LRN must be exactly 12 digits.'];
+            return ['status' => 'error', 'message' => "LRN must be exactly 12 digits. Got '$lrn' (" . strlen($lrn) . " chars)."];
         }
 
         // 1. Get Teacher ID

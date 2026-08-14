@@ -100,6 +100,9 @@ while (($row = fgetcsv($handle)) !== false) {
     }
 
     $lrn            = trim($row[0]);
+    if (preg_match('/^\d(\.\d+)?E\+\d+$/i', $lrn)) {
+    $lrn = '__SCI_NOTATION__' . $lrn; // sentinel so the error message below can flag it distinctly
+    }
     $first_name     = trim($row[1]);
     $middle_name    = trim($row[2]);
     $last_name      = trim($row[3]);
@@ -110,7 +113,12 @@ while (($row = fgetcsv($handle)) !== false) {
 
     $rowErrors = [];
 
-    if (empty($lrn) || !preg_match('/^\d{12}$/', $lrn)) $rowErrors[] = "LRN must be exactly 12 digits.";
+    if (strpos($lrn, '__SCI_NOTATION__') === 0) {
+        $rowErrors[] = "LRN was corrupted by Excel into scientific notation ($row[0]) — the original digits are lost. "
+                    . "Reformat the LRN column as Text in Excel, re-enter the value, and re-export the CSV.";
+    } elseif (empty($lrn) || !preg_match('/^\d{12}$/', $lrn)) {
+        $rowErrors[] = "LRN must be exactly 12 digits. Got: '$lrn' (" . strlen($lrn) . " chars).";
+    }
     if (empty($first_name)) $rowErrors[] = "First name is required.";
     if (empty($last_name))  $rowErrors[] = "Last name is required.";
 
