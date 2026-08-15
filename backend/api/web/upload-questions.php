@@ -43,7 +43,7 @@ $ALLOWED_TYPES        = ['multiple_choice', 'true_false', 'identification', 'jum
 $ALLOWED_DIFFICULTIES = ['easy', 'medium', 'hard'];
 $ALLOWED_TF_ANSWERS   = ['fact','bluff','true', 'false', '1', '0', 'tama', 'mali'];
 $VALID_MCQ_KEYS       = ['A', 'B', 'C', 'D'];
-$MIN_QUESTION_LENGTH  = 1;
+$MIN_QUESTION_LENGTH  = 0;
 
 $TYPE_ALIASES = [
     'fact_bluff'    => 'true_false',
