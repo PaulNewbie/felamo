@@ -151,6 +151,134 @@ $diffColors = [
     'medium' => 'warning',
     'hard'   => 'danger',
 ];
+
+// ── Build the "Excel design" print report (same look as taken_assessments.php's
+//    buildPrintReport: Felamo letterhead, red table header, striped rows) ──────
+ob_start();
+?>
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Result_<?= htmlspecialchars($result['student_lrn']) ?>_<?= date('Y-m-d') ?></title>
+<style>
+    @page { size: landscape; margin: 24px; }
+    * { box-sizing: border-box; }
+    body {
+        font-family: Arial, Helvetica, sans-serif;
+        color: #212529;
+        margin: 0;
+        padding: 30px 40px;
+    }
+    .report-header { text-align: center; margin-bottom: 6px; }
+    .report-header h1 { font-size: 20px; font-weight: 700; margin: 0 0 2px 0; color: #212529; }
+    .report-header h2 { font-size: 15px; font-weight: 600; margin: 0 0 10px 0; color: #495057; }
+    .report-meta { text-align: center; font-size: 11px; color: #6c757d; margin-bottom: 18px; }
+
+    .summary-grid {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 18px;
+        font-size: 12px;
+    }
+    .summary-grid td { padding: 5px 10px; border: 1px solid #dee2e6; }
+    .summary-grid td.label { background: #f1f3f5; font-weight: 700; width: 16%; white-space: nowrap; }
+    .summary-grid td.result-pass { color: #155724; font-weight: 700; }
+    .summary-grid td.result-fail { color: #721c24; font-weight: 700; }
+
+    .report-summary { font-size: 12px; font-weight: 700; margin-bottom: 8px; color: #212529; }
+
+    table.items { width: 100%; border-collapse: collapse; font-size: 11px; }
+    table.items thead th {
+        background-color: #a71b1b; color: #ffffff; text-align: left;
+        padding: 8px 10px; font-weight: 700; text-transform: uppercase;
+        letter-spacing: 0.3px; font-size: 10px;
+    }
+    table.items tbody td { padding: 7px 10px; border-bottom: 1px solid #e9ecef; vertical-align: top; }
+    table.items tbody tr:nth-child(even) { background-color: #f8f9fa; }
+    .cell-correct { color: #155724; font-weight: 700; }
+    .cell-wrong   { color: #721c24; font-weight: 700; }
+
+    .print-footer { margin-top: 24px; font-size: 10px; color: #6c757d; text-align: right; }
+</style>
+</head>
+<body>
+    <div class="report-header">
+        <h1>Felamo</h1>
+        <h2>Assessment Result Report &mdash; <?= htmlspecialchars($result['assessment_title']) ?></h2>
+    </div>
+    <div class="report-meta">Generated: <?= date('F j, Y \a\t g:i A') ?></div>
+
+    <table class="summary-grid">
+        <tr>
+            <td class="label">Student Name</td>
+            <td><?= htmlspecialchars($result['first_name'] . ' ' . $result['last_name']) ?></td>
+            <td class="label">LRN</td>
+            <td><?= htmlspecialchars($result['student_lrn']) ?></td>
+        </tr>
+        <tr>
+            <td class="label">Markahan</td>
+            <td><?= htmlspecialchars($markahan) ?></td>
+            <td class="label">Aralin</td>
+            <td>Aralin <?= (int)$result['aralin_no'] ?> &mdash; <?= htmlspecialchars($result['aralin_title']) ?></td>
+        </tr>
+        <tr>
+            <td class="label">Date Taken</td>
+            <td><?= date('F j, Y g:i A', strtotime($result['created_at'])) ?></td>
+            <td class="label">Score</td>
+            <td>
+                <?= $score ?> / <?= $total ?> (<?= $pct ?>%) &mdash;
+                <span class="<?= $passed ? 'result-pass' : 'result-fail' ?>"><?= $passed ? 'PASSED' : 'FAILED' ?></span>
+            </td>
+        </tr>
+    </table>
+
+    <div class="report-summary">Items: <?= count($answers) ?></div>
+
+    <table class="items">
+        <thead>
+            <tr>
+                <th style="width:4%;">#</th>
+                <th style="width:30%;">Question</th>
+                <th style="width:12%;">Type</th>
+                <th style="width:9%;">Difficulty</th>
+                <th style="width:18%;">Student's Answer</th>
+                <th style="width:18%;">Correct Answer</th>
+                <th style="width:9%;">Result</th>
+            </tr>
+        </thead>
+        <tbody>
+        <?php if (empty($answers)): ?>
+            <tr><td colspan="7" style="text-align:center; padding:20px;">No answer log available for this submission.</td></tr>
+        <?php else: ?>
+            <?php $qn = 0; foreach ($answers as $ans):
+                $qn++;
+                $type          = $ans['type'];
+                $displayType   = $typeLabels[$type] ?? ucfirst($type);
+                $difficulty    = $ans['difficulty'] ?? 'medium';
+                $studentDisp   = resolveDisplayAnswer($type, $ans['student_answer'], $ans['choices_decoded']);
+                $correctDisp   = resolveCorrectDisplay($type, $ans['correct_answer'], $ans['choices_decoded']);
+                $itemCorrect   = isCorrect($type, $ans['student_answer'], $ans['correct_answer']);
+            ?>
+            <tr>
+                <td><?= $qn ?></td>
+                <td><?= htmlspecialchars($ans['question_text']) ?></td>
+                <td><?= htmlspecialchars($displayType) ?></td>
+                <td><?= htmlspecialchars(ucfirst($difficulty)) ?></td>
+                <td><?= htmlspecialchars($studentDisp) ?></td>
+                <td><?= htmlspecialchars($correctDisp) ?></td>
+                <td class="<?= $itemCorrect ? 'cell-correct' : 'cell-wrong' ?>"><?= $itemCorrect ? 'Correct' : 'Wrong' ?></td>
+            </tr>
+            <?php endforeach; ?>
+        <?php endif; ?>
+        </tbody>
+    </table>
+
+    <div class="print-footer">Generated by Felamo System</div>
+</body>
+</html>
+<?php
+$printReportHtml = ob_get_clean();
 ?>
 
 <input type="hidden" id="hidden_user_id" value="<?= isset($auth_user_id) ? $auth_user_id : '' ?>">
@@ -294,14 +422,18 @@ $diffColors = [
         display: flex; align-items: center; gap: 8px;
     }
 
-    @media print {
-        .sidebar, .sidebar-toggle, .page-header-banner .btn-back-text { display: none !important; }
-        .main-content { margin-left: 0 !important; }
-    }
-
     @media (max-width: 991.98px) {
         .main-content { margin-left: 0; padding: 1rem; }
         .result-summary { flex-direction: column; align-items: flex-start; }
+    }
+
+    /* Fallback only — covers Ctrl+P / browser print dialog triggered directly
+       on this page. The "Print" button instead opens a clean Excel-style
+       report window (see buildPrintReport() below), matching how
+       taken_assessments.php prints its report. */
+    @media print {
+        .sidebar, .sidebar-toggle, .page-header-banner { display: none !important; }
+        .main-content { margin-left: 0 !important; }
     }
 </style>
 
@@ -321,7 +453,7 @@ $diffColors = [
                     Result &mdash; <?= htmlspecialchars($result['assessment_title']) ?>
                 </h4>
             </div>
-            <button onclick="window.print()" class="btn btn-light btn-sm fw-bold shadow-sm">
+            <button type="button" id="btn-print-report" class="btn btn-light btn-sm fw-bold shadow-sm">
                 <i class="bi bi-printer me-1"></i> Print
             </button>
         </div>
@@ -398,11 +530,11 @@ $diffColors = [
                     </span>
                     <span class="ms-auto">
                         <?php if ($correct): ?>
-                            <span style="color:#28a745; font-weight:700; font-size:0.88rem;">
+                            <span class="result-flag result-flag-correct" style="color:#28a745; font-weight:700; font-size:0.88rem;">
                                 <i class="bi bi-check-circle-fill"></i> Correct
                             </span>
                         <?php else: ?>
-                            <span style="color:#dc3545; font-weight:700; font-size:0.88rem;">
+                            <span class="result-flag result-flag-wrong" style="color:#dc3545; font-weight:700; font-size:0.88rem;">
                                 <i class="bi bi-x-circle-fill"></i> Wrong
                             </span>
                         <?php endif; ?>
@@ -421,8 +553,9 @@ $diffColors = [
                         $choiceBorder = '#dee2e6';
                         if ($isCorrectChoice) { $choiceBg = '#d4edda'; $choiceBorder = '#28a745'; }
                         if ($isStudentChoice && !$isCorrectChoice) { $choiceBg = '#f8d7da'; $choiceBorder = '#dc3545'; }
+                        $choiceExtraClass = $isCorrectChoice ? 'mcq-choice-correct' : ($isStudentChoice ? 'mcq-choice-wrong' : '');
                     ?>
-                    <div style="
+                    <div class="mcq-choice <?= $choiceExtraClass ?>" style="
                         padding: 6px 12px; border-radius: 6px; font-size: 0.85rem;
                         background: <?= $choiceBg ?>; border: 1px solid <?= $choiceBorder ?>;
                         font-weight: <?= ($isStudentChoice || $isCorrectChoice) ? '700' : '500' ?>;
@@ -458,6 +591,10 @@ $diffColors = [
 
 <?php include("components/footer-scripts.php"); ?>
 <script>
+    // Report HTML built server-side in PHP (see $printReportHtml above),
+    // safely passed through json_encode so quotes/newlines survive intact.
+    const PRINT_REPORT_HTML = <?= json_encode($printReportHtml) ?>;
+
     $(document).ready(function () {
         $(document).off('click', '.sidebar-toggle');
         $(document).on('click', '.sidebar-toggle', function(e) {
@@ -465,6 +602,19 @@ $diffColors = [
             $(".dashboard-wrapper").toggleClass("toggled");
         });
         $('a.nav-link-custom[href="levels.php"]').addClass('active');
+
+        // ── PRINT REPORT (Excel-style table report, printed as PDF) ────────
+        $('#btn-print-report').on('click', function () {
+            const printWindow = window.open("", "_blank", "width=1100,height=800");
+            printWindow.document.open();
+            printWindow.document.write(PRINT_REPORT_HTML);
+            printWindow.document.close();
+
+            printWindow.onload = function () {
+                printWindow.focus();
+                printWindow.print();
+            };
+        });
     });
 </script>
 <?php include("components/footer.php"); ?>

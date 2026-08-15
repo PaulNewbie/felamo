@@ -202,11 +202,12 @@ body             { background-color: #f4f6f9; overflow-x: hidden; }
 .empty-state { text-align:center; padding:60px 24px; color:#6c757d; }
 .empty-state i { font-size:3.5rem; opacity:.3; display:block; margin-bottom:14px; }
 
-/* Print */
+/* Print — fallback only for Ctrl+P. The "Print" button instead opens a
+   clean Excel-style report window (see buildPrintReport() below), matching
+   taken_assessments.php / view_result.php. */
 @media print {
-    .sidebar, .sidebar-toggle, .btn-back-text, .filter-bar, .btn-print { display:none!important; }
+    .sidebar, .sidebar-toggle, .page-header-banner, .filter-bar { display:none!important; }
     .main-content { margin-left:0!important; padding:0; }
-    .q-card { break-inside:avoid; }
 }
 
 @media (max-width:991.98px) {
@@ -238,7 +239,7 @@ body             { background-color: #f4f6f9; overflow-x: hidden; }
                     </div>
                 </div>
             </div>
-            <button onclick="window.print()"
+            <button type="button" id="btn-print-report"
                     class="btn btn-light btn-sm fw-bold shadow-sm btn-print mt-1">
                 <i class="bi bi-printer me-1"></i> Print
             </button>
@@ -331,7 +332,16 @@ $(document).ready(function () {
 
     // ── State ───────────────────────────────────────────────────────────
     const assessmentId = $('#hidden_assessment_id').val();
-    let allQuestions   = [];
+    let allQuestions    = [];
+    let lastFiltered     = []; // whatever is currently visible, for printing
+    let summaryStats      = { total_takers: 0, total_questions: 0, avg_percent_correct: 0, hard_count: 0 };
+
+    // Letterhead info for the print report
+    const reportMeta = {
+        assessmentTitle: <?= json_encode($hdr['assessment_title']) ?>,
+        aralinLabel:     <?= json_encode('Aralin ' . (int)$hdr['aralin_no'] . ' — ' . $hdr['aralin_title']) ?>,
+        markahan:        <?= json_encode($markahan) ?>,
+    };
 
     // ── Helper: type badge ──────────────────────────────────────────────
     const typeBadge = (type) => {
@@ -462,6 +472,7 @@ $(document).ready(function () {
         });
 
         $('#visible-count').text(filtered.length);
+        lastFiltered = filtered;
 
         if (filtered.length === 0) {
             $('#questions-container').html(`
@@ -502,6 +513,13 @@ $(document).ready(function () {
             $('#stat-hard').text(res.hard_question_ids.length);
             $('#total-count').text(res.total_questions);
 
+            summaryStats = {
+                total_takers        : res.total_takers,
+                total_questions     : res.total_questions,
+                avg_percent_correct : res.avg_percent_correct,
+                hard_count          : res.hard_question_ids.length,
+            };
+
             applyFilters();
         },
         error : function (xhr) {
@@ -520,6 +538,158 @@ $(document).ready(function () {
     $('#btn-reset').on('click', function () {
         $('#filter-type, #filter-diff, #filter-rate').val('all');
         applyFilters();
+    });
+
+    // ── PRINT REPORT (Excel-style table report, printed as PDF) ───────────
+    const buildPrintReport = (rows) => {
+        const now = new Date();
+        const generatedStr = now.toLocaleDateString('en-US', {
+            year: 'numeric', month: 'long', day: 'numeric'
+        }) + ' at ' + now.toLocaleTimeString('en-US', {
+            hour: '2-digit', minute: '2-digit'
+        });
+
+        const pad2 = (n) => String(n).padStart(2, '0');
+        const fileDateStr = `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())}`;
+        const reportTitle  = `Item_Analysis_${fileDateStr}`;
+
+        const typeLabels = {
+            multiple_choice: 'Multiple Choice',
+            true_false:      'Fact or Bluff',
+            identification:  'Identification',
+            jumbled_word:    'Jumbled Word',
+        };
+
+        let tableRows = '';
+        rows.forEach((q, i) => {
+            const qNum       = i + 1;
+            const typeLabel  = typeLabels[q.type] || q.type;
+            const difficulty = (q.difficulty || '').charAt(0).toUpperCase() + (q.difficulty || '').slice(1);
+            const noData     = q.total_answers === 0;
+            const pctLabel   = noData ? 'N/A' : `${q.percent_correct}%`;
+            const pctClass   = noData ? '' : (q.percent_correct >= 75 ? 'cell-correct' : (q.percent_correct >= 50 ? '' : 'cell-wrong'));
+
+            tableRows += `
+                <tr>
+                    <td>${qNum}</td>
+                    <td>${escHtml(q.question_text)}</td>
+                    <td>${escHtml(typeLabel)}</td>
+                    <td>${escHtml(difficulty)}</td>
+                    <td>${noData ? '—' : q.correct_count}</td>
+                    <td>${noData ? '—' : q.wrong_count}</td>
+                    <td class="${pctClass}">${pctLabel}</td>
+                </tr>`;
+        });
+
+        return `
+        <!DOCTYPE html>
+        <html>
+        <head>
+        <meta charset="UTF-8">
+        <title>${reportTitle}</title>
+        <style>
+            @page { size: landscape; margin: 24px; }
+            * { box-sizing: border-box; }
+            body {
+                font-family: Arial, Helvetica, sans-serif;
+                color: #212529;
+                margin: 0;
+                padding: 30px 40px;
+            }
+            .report-header { text-align: center; margin-bottom: 6px; }
+            .report-header h1 { font-size: 20px; font-weight: 700; margin: 0 0 2px 0; color: #212529; }
+            .report-header h2 { font-size: 15px; font-weight: 600; margin: 0 0 10px 0; color: #495057; }
+            .report-meta { text-align: center; font-size: 11px; color: #6c757d; margin-bottom: 18px; }
+
+            .summary-grid { width: 100%; border-collapse: collapse; margin-bottom: 18px; font-size: 12px; }
+            .summary-grid td { padding: 5px 10px; border: 1px solid #dee2e6; }
+            .summary-grid td.label { background: #f1f3f5; font-weight: 700; width: 16%; white-space: nowrap; }
+
+            .report-summary { font-size: 12px; font-weight: 700; margin-bottom: 8px; color: #212529; }
+
+            table.items { width: 100%; border-collapse: collapse; font-size: 11px; }
+            table.items thead th {
+                background-color: #a71b1b; color: #ffffff; text-align: left;
+                padding: 8px 10px; font-weight: 700; text-transform: uppercase;
+                letter-spacing: 0.3px; font-size: 10px;
+            }
+            table.items tbody td { padding: 7px 10px; border-bottom: 1px solid #e9ecef; vertical-align: top; }
+            table.items tbody tr:nth-child(even) { background-color: #f8f9fa; }
+            .cell-correct { color: #155724; font-weight: 700; }
+            .cell-wrong   { color: #721c24; font-weight: 700; }
+
+            .print-footer { margin-top: 24px; font-size: 10px; color: #6c757d; text-align: right; }
+        </style>
+        </head>
+        <body>
+            <div class="report-header">
+                <h1>Felamo</h1>
+                <h2>Item Analysis Report &mdash; ${escHtml(reportMeta.assessmentTitle)}</h2>
+            </div>
+            <div class="report-meta">Generated: ${generatedStr}</div>
+
+            <table class="summary-grid">
+                <tr>
+                    <td class="label">Markahan</td>
+                    <td>${escHtml(reportMeta.markahan)}</td>
+                    <td class="label">Aralin</td>
+                    <td>${escHtml(reportMeta.aralinLabel)}</td>
+                </tr>
+                <tr>
+                    <td class="label">Students Who Took It</td>
+                    <td>${summaryStats.total_takers}</td>
+                    <td class="label">Total Questions</td>
+                    <td>${summaryStats.total_questions}</td>
+                </tr>
+                <tr>
+                    <td class="label">Avg % Correct</td>
+                    <td>${summaryStats.avg_percent_correct}%</td>
+                    <td class="label">Difficult Items (&lt;50%)</td>
+                    <td>${summaryStats.hard_count}</td>
+                </tr>
+            </table>
+
+            <div class="report-summary">Items Shown: ${rows.length}</div>
+
+            <table class="items">
+                <thead>
+                    <tr>
+                        <th style="width:4%;">#</th>
+                        <th style="width:34%;">Question</th>
+                        <th style="width:13%;">Type</th>
+                        <th style="width:9%;">Difficulty</th>
+                        <th style="width:9%;">Correct</th>
+                        <th style="width:9%;">Wrong</th>
+                        <th style="width:9%;">% Correct</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${tableRows || '<tr><td colspan="7" style="text-align:center;padding:20px;">No questions found.</td></tr>'}
+                </tbody>
+            </table>
+
+            <div class="print-footer">Generated by Felamo System</div>
+        </body>
+        </html>`;
+    };
+
+    $('#btn-print-report').on('click', function () {
+        const rowsToPrint = lastFiltered.length ? lastFiltered : allQuestions;
+
+        if (!rowsToPrint.length) {
+            alert('There are no questions to print.');
+            return;
+        }
+
+        const printWindow = window.open('', '_blank', 'width=1100,height=800');
+        printWindow.document.open();
+        printWindow.document.write(buildPrintReport(rowsToPrint));
+        printWindow.document.close();
+
+        printWindow.onload = function () {
+            printWindow.focus();
+            printWindow.print();
+        };
     });
 
     // ── Escape helper ───────────────────────────────────────────────────
