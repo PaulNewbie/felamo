@@ -173,7 +173,11 @@ if ($level_id) {
                     Taken Assessments &mdash; <?= htmlspecialchars($levelText) ?> Markahan
                 </h4>
             </div>
-            <div class="header-right"></div>
+            <div class="header-right">
+                <button type="button" id="btn-print-report" class="btn-back-text" style="border:none; cursor:pointer;">
+                    <i class="bi bi-printer-fill"></i> PRINT REPORT
+                </button>
+            </div>
         </div>
 
         <!-- Filter bar -->
@@ -236,7 +240,9 @@ if ($level_id) {
 <script>
 $(document).ready(function () {
     const level_id   = $("#hidden_level_id").val();
+    const levelText  = <?= json_encode($levelText . " Markahan") ?>;
     let allData      = []; // store full dataset for client-side filtering
+    let lastFiltered = []; // store whatever is currently visible, for printing
 
     // ── Sidebar toggle ──────────────────────────────────────────────────────
     $(document).off('click', '.sidebar-toggle');
@@ -385,6 +391,7 @@ $(document).ready(function () {
             return true;
         });
 
+        lastFiltered = filtered;
         renderRows(filtered);
     };
 
@@ -418,6 +425,171 @@ $(document).ready(function () {
             .replace(/>/g, "&gt;")
             .replace(/"/g, "&quot;");
     };
+
+    // ── PRINT REPORT (Excel-style table report, printed as PDF) ───────────────
+    const buildPrintReport = (rows) => {
+        const now = new Date();
+        const generatedStr = now.toLocaleDateString('en-US', {
+            year: 'numeric', month: 'long', day: 'numeric'
+        }) + ' at ' + now.toLocaleTimeString('en-US', {
+            hour: '2-digit', minute: '2-digit'
+        });
+
+        // Filename-safe date (used as the default "Save as PDF" filename)
+        const pad2 = (n) => String(n).padStart(2, '0');
+        const fileDateStr = `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())}`;
+        const reportTitle  = `Taken_Assessments_Report_${fileDateStr}`;
+
+        let tableRows = "";
+        rows.forEach((item) => {
+            const aralinNo    = item.aralin_no ?? "N/A";
+            const title       = item.assessment_title || item.aralin_title || "Untitled";
+            const lrn         = item.lrn || "N/A";
+            const studentName = item.student_name || "Unknown";
+            const sectionName = item.section_name || "No Section";
+            const score       = parseInt(item.points) || 0;
+            const total       = parseInt(item.total)  || 0;
+            const scoreLabel  = total > 0 ? `${score} / ${total}` : "Pending";
+
+            let dateTaken = "N/A";
+            if (item.created_at) {
+                const d = new Date(item.created_at);
+                if (!isNaN(d)) {
+                    dateTaken = d.toLocaleDateString('en-US', {
+                        year: 'numeric', month: 'short', day: 'numeric'
+                    });
+                }
+            }
+
+            tableRows += `
+                <tr>
+                    <td>${escapeHtml(String(aralinNo))}</td>
+                    <td>${escapeHtml(title)}</td>
+                    <td>${escapeHtml(String(lrn))}</td>
+                    <td>${escapeHtml(studentName)}</td>
+                    <td>${escapeHtml(sectionName)}</td>
+                    <td>${escapeHtml(dateTaken)}</td>
+                    <td>${escapeHtml(scoreLabel)}</td>
+                </tr>`;
+        });
+
+        return `
+        <!DOCTYPE html>
+        <html>
+        <head>
+        <meta charset="UTF-8">
+        <title>${reportTitle}</title>
+        <style>
+            @page { size: landscape; margin: 24px; }
+            * { box-sizing: border-box; }
+            body {
+                font-family: Arial, Helvetica, sans-serif;
+                color: #212529;
+                margin: 0;
+                padding: 30px 40px;
+            }
+            .report-header { text-align: center; margin-bottom: 6px; }
+            .report-header h1 {
+                font-size: 20px;
+                font-weight: 700;
+                margin: 0 0 2px 0;
+                color: #212529;
+            }
+            .report-header h2 {
+                font-size: 15px;
+                font-weight: 600;
+                margin: 0 0 10px 0;
+                color: #495057;
+            }
+            .report-meta {
+                text-align: center;
+                font-size: 11px;
+                color: #6c757d;
+                margin-bottom: 18px;
+            }
+            .report-summary {
+                font-size: 12px;
+                font-weight: 700;
+                margin-bottom: 12px;
+                color: #212529;
+            }
+            table {
+                width: 100%;
+                border-collapse: collapse;
+                font-size: 11px;
+            }
+            thead th {
+                background-color: #a71b1b;
+                color: #ffffff;
+                text-align: left;
+                padding: 8px 10px;
+                font-weight: 700;
+                text-transform: uppercase;
+                letter-spacing: 0.3px;
+                font-size: 10px;
+            }
+            tbody td {
+                padding: 7px 10px;
+                border-bottom: 1px solid #e9ecef;
+                vertical-align: top;
+            }
+            tbody tr:nth-child(even) { background-color: #f8f9fa; }
+            .print-footer {
+                margin-top: 24px;
+                font-size: 10px;
+                color: #6c757d;
+                text-align: right;
+            }
+        </style>
+        </head>
+        <body>
+            <div class="report-header">
+                <h1>Felamo</h1>
+                <h2>Taken Assessments Report &mdash; ${escapeHtml(levelText)}</h2>
+            </div>
+            <div class="report-meta">Generated: ${generatedStr}</div>
+            <div class="report-summary">Total Records: ${rows.length}</div>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>Aralin No.</th>
+                        <th>Assessment Title</th>
+                        <th>LRN</th>
+                        <th>Student Name</th>
+                        <th>Section</th>
+                        <th>Date Taken</th>
+                        <th>Score</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${tableRows || '<tr><td colspan="7" style="text-align:center;padding:20px;">No records found.</td></tr>'}
+                </tbody>
+            </table>
+
+            <div class="print-footer">Generated by Felamo System</div>
+        </body>
+        </html>`;
+    };
+
+    $("#btn-print-report").on("click", function () {
+        const rowsToPrint = lastFiltered.length ? lastFiltered : allData;
+
+        if (!rowsToPrint.length) {
+            alert("There are no records to print.");
+            return;
+        }
+
+        const printWindow = window.open("", "_blank", "width=1100,height=800");
+        printWindow.document.open();
+        printWindow.document.write(buildPrintReport(rowsToPrint));
+        printWindow.document.close();
+
+        printWindow.onload = function () {
+            printWindow.focus();
+            printWindow.print();
+        };
+    });
 
     // ── Events ───────────────────────────────────────────────────────────────
     // Debounce text input filters

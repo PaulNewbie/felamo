@@ -28,6 +28,7 @@ class AssessmentTakesController extends db_connect
                 u.last_name, 
                 at.total,
                 a.assessment_title,
+                ar.aralin_no,
                 ar.aralin_title,
                 s.section_name,
                 COUNT(atl.id) AS total_attempts

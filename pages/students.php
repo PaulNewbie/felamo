@@ -46,7 +46,20 @@ try {
 
     /* CONTENT & HEADER */
     .main-content { flex: 1; margin-left: 280px; padding: 30px 40px; transition: all 0.3s ease; }
-    .page-header { background: linear-gradient(180deg, #a71b1b 0%, #880f0b 100%); color: white; padding: 15px 30px; border-radius: 8px; font-weight: bold; font-size: 1.5rem; margin-bottom: 20px; text-transform: uppercase; }
+    .page-header {
+        background: linear-gradient(180deg, #a71b1b 0%, #880f0b 100%);
+        color: white; padding: 15px 30px; border-radius: 8px; font-weight: bold;
+        font-size: 1.5rem; margin-bottom: 20px; text-transform: uppercase;
+        display: flex; align-items: center; justify-content: space-between;
+    }
+    .btn-header-action {
+        background-color: rgba(255,255,255,0.95); color: #a71b1b; border: none;
+        font-size: 0.85rem; font-weight: 700; padding: 9px 20px; border-radius: 50px;
+        text-transform: uppercase; letter-spacing: 0.3px; box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+        text-decoration: none; cursor: pointer; transition: all 0.2s;
+        display: inline-flex; align-items: center; gap: 8px; white-space: nowrap;
+    }
+    .btn-header-action:hover { background-color: #ffffff; color: #880f0b; transform: translateY(-1px); }
 
     /* FILTER BAR */
     .filter-bar { background: white; border-radius: 8px; padding: 16px 20px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); border: 1px solid #dee2e6; display: flex; flex-wrap: wrap; align-items: flex-end; gap: 16px; }
@@ -61,7 +74,10 @@ try {
     
     <main class="main-content">
         <div class="page-header">
-            <i class="bi bi-people-fill me-2"></i> Master Student Roster
+            <div><i class="bi bi-people-fill me-2"></i> Master Student Roster</div>
+            <button type="button" id="btn-print-report" class="btn-header-action">
+                <i class="bi bi-printer-fill"></i> PRINT REPORT
+            </button>
         </div>
 
         <div class="filter-bar">
@@ -140,6 +156,7 @@ try {
         const is_super_admin = $("#hidden_is_super_admin").val(); 
         const url_section_id = $("#url_section_id").val(); 
         let allStudents = [];
+        let lastFiltered = []; // NEW: keeps whatever is currently on screen, for printing
 
         // Check URL for Section ID and Pre-Select it
         if (url_section_id) {
@@ -192,6 +209,7 @@ try {
                 if (genderQ !== "all" && gen !== genderQ) return false;
                 return true;
             });
+            lastFiltered = filtered; // NEW
             renderTable(filtered);
         };
 
@@ -211,6 +229,132 @@ try {
                 }
             });
         };
+
+        // ── HTML escape ─────────────────────────────────────────────────────
+        const escapeHtml = (str) => String(str ?? "")
+            .replace(/&/g, "&amp;").replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+
+        // ── PRINT REPORT (Excel-style table report, printed as PDF) ─────────
+        const buildPrintReport = (rows) => {
+            const now = new Date();
+            const generatedStr = now.toLocaleDateString('en-US', {
+                year: 'numeric', month: 'long', day: 'numeric'
+            }) + ' at ' + now.toLocaleTimeString('en-US', {
+                hour: '2-digit', minute: '2-digit'
+            });
+
+            const pad2 = (n) => String(n).padStart(2, '0');
+            const fileDateStr = `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())}`;
+            const reportTitle = `Student_Roster_Report_${fileDateStr}`;
+
+            let tableRows = "";
+            rows.forEach((s) => {
+                const firstName  = s.first_name || "";
+                const middleName = s.middle_name || "";
+                const lastName   = s.last_name || "";
+                const section    = s.section_name || "N/A";
+                const lrn        = s.student_lrn || s.lrn || "";
+                const birthDate  = s.birth_date || "";
+                const gender     = s.gender || "";
+                const email      = s.email || "";
+                const contact    = s.contact_no || "";
+
+                tableRows += `
+                    <tr>
+                        <td>${escapeHtml(firstName)}</td>
+                        <td>${escapeHtml(middleName)}</td>
+                        <td>${escapeHtml(lastName)}</td>
+                        <td>${escapeHtml(section)}</td>
+                        <td>${escapeHtml(lrn)}</td>
+                        <td>${escapeHtml(birthDate)}</td>
+                        <td>${escapeHtml(gender)}</td>
+                        <td>${escapeHtml(email)}</td>
+                        <td>${escapeHtml(contact)}</td>
+                    </tr>`;
+            });
+
+            return `
+            <!DOCTYPE html>
+            <html>
+            <head>
+            <meta charset="UTF-8">
+            <title>${reportTitle}</title>
+            <style>
+                @page { size: landscape; margin: 24px; }
+                * { box-sizing: border-box; }
+                body {
+                    font-family: Arial, Helvetica, sans-serif;
+                    color: #212529;
+                    margin: 0;
+                    padding: 30px 40px;
+                }
+                .report-header { text-align: center; margin-bottom: 6px; }
+                .report-header h1 { font-size: 20px; font-weight: 700; margin: 0 0 2px 0; color: #212529; }
+                .report-header h2 { font-size: 15px; font-weight: 600; margin: 0 0 10px 0; color: #495057; }
+                .report-meta { text-align: center; font-size: 11px; color: #6c757d; margin-bottom: 18px; }
+                .report-summary { font-size: 12px; font-weight: 700; margin-bottom: 12px; color: #212529; }
+                table { width: 100%; border-collapse: collapse; font-size: 11px; }
+                thead th {
+                    background-color: #a71b1b; color: #ffffff; text-align: left;
+                    padding: 8px 10px; font-weight: 700; text-transform: uppercase;
+                    letter-spacing: 0.3px; font-size: 10px;
+                }
+                tbody td { padding: 7px 10px; border-bottom: 1px solid #e9ecef; vertical-align: top; }
+                tbody tr:nth-child(even) { background-color: #f8f9fa; }
+                .print-footer { margin-top: 24px; font-size: 10px; color: #6c757d; text-align: right; }
+            </style>
+            </head>
+            <body>
+                <div class="report-header">
+                    <h1>Felamo</h1>
+                    <h2>Master Student Roster Report</h2>
+                </div>
+                <div class="report-meta">Generated: ${generatedStr}</div>
+                <div class="report-summary">Total Students: ${rows.length}</div>
+
+                <table>
+                    <thead>
+                        <tr>
+                            <th>First Name</th>
+                            <th>Middle Name</th>
+                            <th>Last Name</th>
+                            <th>Section</th>
+                            <th>LRN</th>
+                            <th>Birth Date</th>
+                            <th>Gender</th>
+                            <th>Email</th>
+                            <th>Contact</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${tableRows || '<tr><td colspan="9" style="text-align:center;padding:20px;">No students found.</td></tr>'}
+                    </tbody>
+                </table>
+
+                <div class="print-footer">Generated by Felamo System</div>
+            </body>
+            </html>`;
+        };
+
+        $("#btn-print-report").on("click", function () {
+            const rowsToPrint = lastFiltered.length ? lastFiltered : allStudents;
+
+            if (!rowsToPrint.length) {
+                alert("There are no students to print.");
+                return;
+            }
+
+            const printWindow = window.open("", "_blank", "width=1100,height=800");
+            printWindow.document.open();
+            printWindow.document.write(buildPrintReport(rowsToPrint));
+            printWindow.document.close();
+
+            printWindow.onload = function () {
+                printWindow.focus();
+                printWindow.print();
+            };
+        });
 
         // Event Listeners for Filters
         $("#filter-text, #filter-section, #filter-gender").on("input change", applyFilters);
