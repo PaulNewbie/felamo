@@ -128,7 +128,7 @@ foreach ($all_answers as $item) {
             $score++;
         }
     } elseif ($q['type'] === 'true_false') {
-        $db_is_true = in_array(strtolower($correct), ['true', '1', 'tama']) ? 1 : 0;
+        $db_is_true = in_array(strtolower($correct), ['true', '1', 'tama', 'fact', 'Fact']) ? 1 : 0;
         if ((int)$user_answer === $db_is_true) {
             $score++;
         }

@@ -151,7 +151,7 @@ while ($q = $result->fetch_assoc()) {
         $flutter_data['true_or_false'][] = [
             'id'         => $q['id'],
             'question'   => $q['question_text'],
-            'answer'     => in_array(strtolower(trim($q['correct_answer'])), ['true', '1', 'tama']) ? 1 : 0,
+            'answer'     => in_array(strtolower(trim($q['correct_answer'])), ['true', '1', 'tama', 'fact', 'Fact']) ? 1 : 0,
             'difficulty' => $q['difficulty'], // Add this line
         ];
     } elseif ($q['type'] === 'identification') {
