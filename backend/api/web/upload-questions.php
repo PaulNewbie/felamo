@@ -64,7 +64,10 @@ if ($fetchStmt) {
     $fetchStmt->execute();
     $result = $fetchStmt->get_result();
     while ($row = $result->fetch_assoc()) {
-        $existingQuestions[strtolower(trim($row['question_text']))] = true;
+        $text = strtolower(trim($row['question_text']));
+        if ($text !== '') {
+            $existingQuestions[$text] = true;
+        }
     }
     $fetchStmt->close();
 }
@@ -172,12 +175,14 @@ while (($row = fgetcsv($handle)) !== false) {
     $checkText = strtolower($question_text);
     $isDuplicate = false;
 
-    if (isset($existingQuestions[$checkText])) {
-        $warnings[] = "Row $rowIndex: Skipped — question already exists in database.";
-        $isDuplicate = true;
-    } elseif (isset($seenInFile[$checkText])) {
-        $warnings[] = "Row $rowIndex: Skipped — duplicate question within this CSV file.";
-        $isDuplicate = true;
+    if ($checkText !== '') {
+        if (isset($existingQuestions[$checkText])) {
+            $warnings[] = "Row $rowIndex: Skipped — question already exists in database.";
+            $isDuplicate = true;
+        } elseif (isset($seenInFile[$checkText])) {
+            $warnings[] = "Row $rowIndex: Skipped — duplicate question within this CSV file.";
+            $isDuplicate = true;
+        }
     }
 
     // ── Collect row result ────────────────────────────────────────────────────
@@ -186,7 +191,9 @@ while (($row = fgetcsv($handle)) !== false) {
             $errors[] = "Row $rowIndex: $err";
         }
     } elseif (!$isDuplicate) {
-        $seenInFile[$checkText] = true;
+        if ($checkText !== '') {
+            $seenInFile[$checkText] = true;
+        }
         $parsedRows[] = [
             'concept_group_id' => $concept_group_id,
             'type'             => $type,
